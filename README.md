@@ -49,3 +49,4 @@ User Wallet  ---->  TaskRegistry (Smart Contract)
    |                       |
    v                       v
  LP Staking Contract <---- Execution
+
