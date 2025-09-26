@@ -9,16 +9,16 @@ interface IERC20 {
 
 contract DummySwap {
     IERC20 public xbtc;
-    IERC20 public xusd;
+    IERC20 public xusdc;
     
     uint256 public xbtcReserve;
-    uint256 public xusdReserve;
+    uint256 public xusdcReserve;
     
     uint256 private constant FEE_BASIS_POINTS = 30; // 0.3% fee
     uint256 private constant BASIS_POINTS = 10000;
     
-    event LiquidityAdded(address indexed provider, uint256 xbtcAmount, uint256 xusdAmount);
-    event LiquidityRemoved(address indexed provider, uint256 xbtcAmount, uint256 xusdAmount);
+    event LiquidityAdded(address indexed provider, uint256 xbtcAmount, uint256 xusdcAmount);
+    event LiquidityRemoved(address indexed provider, uint256 xbtcAmount, uint256 xusdcAmount);
     event Swap(
         address indexed user,
         address indexed tokenIn,
@@ -27,93 +27,93 @@ contract DummySwap {
         uint256 amountOut
     );
     
-    constructor(address _xbtc, address _xusd) {
+    constructor(address _xbtc, address _xusdc) {
         xbtc = IERC20(_xbtc);
-        xusd = IERC20(_xusd);
+        xusdc = IERC20(_xusdc);
     }
     
     // Add initial liquidity (simplified version)
-    function addLiquidity(uint256 xbtcAmount, uint256 xusdAmount) external {
-        require(xbtcAmount > 0 && xusdAmount > 0, "Invalid amounts");
+    function addLiquidity(uint256 xbtcAmount, uint256 xusdcAmount) external {
+        require(xbtcAmount > 0 && xusdcAmount > 0, "Invalid amounts");
         
         require(xbtc.transferFrom(msg.sender, address(this), xbtcAmount), "xBTC transfer failed");
-        require(xusd.transferFrom(msg.sender, address(this), xusdAmount), "xUSD transfer failed");
+        require(xusdc.transferFrom(msg.sender, address(this), xusdcAmount), "xUSDC transfer failed");
         
         xbtcReserve += xbtcAmount;
-        xusdReserve += xusdAmount;
+        xusdcReserve += xusdcAmount;
         
-        emit LiquidityAdded(msg.sender, xbtcAmount, xusdAmount);
+        emit LiquidityAdded(msg.sender, xbtcAmount, xusdcAmount);
     }
     
     // Simple constant product formula: x * y = k
-    function swapXBTCForXUSD(uint256 xbtcAmountIn) external {
+    function swapXBTCForXUSDC(uint256 xbtcAmountIn) external {
         require(xbtcAmountIn > 0, "Invalid input amount");
-        require(xbtcReserve > 0 && xusdReserve > 0, "No liquidity");
+        require(xbtcReserve > 0 && xusdcReserve > 0, "No liquidity");
         
         // Calculate fee
         uint256 xbtcAmountInAfterFee = (xbtcAmountIn * (BASIS_POINTS - FEE_BASIS_POINTS)) / BASIS_POINTS;
         
         // Calculate output amount using constant product formula
-        uint256 xusdAmountOut = (xusdReserve * xbtcAmountInAfterFee) / (xbtcReserve + xbtcAmountInAfterFee);
-        require(xusdAmountOut > 0, "Insufficient output amount");
-        require(xusdAmountOut < xusdReserve, "Not enough xUSD reserves");
+        uint256 xusdcAmountOut = (xusdcReserve * xbtcAmountInAfterFee) / (xbtcReserve + xbtcAmountInAfterFee);
+        require(xusdcAmountOut > 0, "Insufficient output amount");
+        require(xusdcAmountOut < xusdcReserve, "Not enough xUSDC reserves");
         
         // Execute transfers
         require(xbtc.transferFrom(msg.sender, address(this), xbtcAmountIn), "xBTC transfer failed");
-        require(xusd.transfer(msg.sender, xusdAmountOut), "xUSD transfer failed");
+        require(xusdc.transfer(msg.sender, xusdcAmountOut), "xUSDC transfer failed");
         
         // Update reserves
         xbtcReserve += xbtcAmountIn;
-        xusdReserve -= xusdAmountOut;
+        xusdcReserve -= xusdcAmountOut;
         
-        emit Swap(msg.sender, address(xbtc), address(xusd), xbtcAmountIn, xusdAmountOut);
+        emit Swap(msg.sender, address(xbtc), address(xusdc), xbtcAmountIn, xusdcAmountOut);
     }
     
-    function swapXUSDForXBTC(uint256 xusdAmountIn) external {
-        require(xusdAmountIn > 0, "Invalid input amount");
-        require(xbtcReserve > 0 && xusdReserve > 0, "No liquidity");
+    function swapXUSDCForXBTC(uint256 xusdcAmountIn) external {
+        require(xusdcAmountIn > 0, "Invalid input amount");
+        require(xbtcReserve > 0 && xusdcReserve > 0, "No liquidity");
         
         // Calculate fee
-        uint256 xusdAmountInAfterFee = (xusdAmountIn * (BASIS_POINTS - FEE_BASIS_POINTS)) / BASIS_POINTS;
+        uint256 xusdcAmountInAfterFee = (xusdcAmountIn * (BASIS_POINTS - FEE_BASIS_POINTS)) / BASIS_POINTS;
         
         // Calculate output amount using constant product formula
-        uint256 xbtcAmountOut = (xbtcReserve * xusdAmountInAfterFee) / (xusdReserve + xusdAmountInAfterFee);
+        uint256 xbtcAmountOut = (xbtcReserve * xusdcAmountInAfterFee) / (xusdcReserve + xusdcAmountInAfterFee);
         require(xbtcAmountOut > 0, "Insufficient output amount");
         require(xbtcAmountOut < xbtcReserve, "Not enough xBTC reserves");
         
         // Execute transfers
-        require(xusd.transferFrom(msg.sender, address(this), xusdAmountIn), "xUSD transfer failed");
+        require(xusdc.transferFrom(msg.sender, address(this), xusdcAmountIn), "xUSDC transfer failed");
         require(xbtc.transfer(msg.sender, xbtcAmountOut), "xBTC transfer failed");
         
         // Update reserves
-        xusdReserve += xusdAmountIn;
+        xusdcReserve += xusdcAmountIn;
         xbtcReserve -= xbtcAmountOut;
         
-        emit Swap(msg.sender, address(xusd), address(xbtc), xusdAmountIn, xbtcAmountOut);
+        emit Swap(msg.sender, address(xusdc), address(xbtc), xusdcAmountIn, xbtcAmountOut);
     }
     
-    // Get quote for swapping xBTC to xUSD
-    function getXBTCToXUSDQuote(uint256 xbtcAmountIn) external view returns (uint256 xusdAmountOut) {
-        if (xbtcAmountIn == 0 || xbtcReserve == 0 || xusdReserve == 0) {
+    // Get quote for swapping xBTC to xUSDC
+    function getXBTCToXUSDCQuote(uint256 xbtcAmountIn) external view returns (uint256 xusdcAmountOut) {
+        if (xbtcAmountIn == 0 || xbtcReserve == 0 || xusdcReserve == 0) {
             return 0;
         }
         
         uint256 xbtcAmountInAfterFee = (xbtcAmountIn * (BASIS_POINTS - FEE_BASIS_POINTS)) / BASIS_POINTS;
-        xusdAmountOut = (xusdReserve * xbtcAmountInAfterFee) / (xbtcReserve + xbtcAmountInAfterFee);
+        xusdcAmountOut = (xusdcReserve * xbtcAmountInAfterFee) / (xbtcReserve + xbtcAmountInAfterFee);
         
-        if (xusdAmountOut >= xusdReserve) {
+        if (xusdcAmountOut >= xusdcReserve) {
             return 0;
         }
     }
     
-    // Get quote for swapping xUSD to xBTC
-    function getXUSDToXBTCQuote(uint256 xusdAmountIn) external view returns (uint256 xbtcAmountOut) {
-        if (xusdAmountIn == 0 || xbtcReserve == 0 || xusdReserve == 0) {
+    // Get quote for swapping xUSDC to xBTC
+    function getXUSDCToXBTCQuote(uint256 xusdcAmountIn) external view returns (uint256 xbtcAmountOut) {
+        if (xusdcAmountIn == 0 || xbtcReserve == 0 || xusdcReserve == 0) {
             return 0;
         }
         
-        uint256 xusdAmountInAfterFee = (xusdAmountIn * (BASIS_POINTS - FEE_BASIS_POINTS)) / BASIS_POINTS;
-        xbtcAmountOut = (xbtcReserve * xusdAmountInAfterFee) / (xusdReserve + xusdAmountInAfterFee);
+        uint256 xusdcAmountInAfterFee = (xusdcAmountIn * (BASIS_POINTS - FEE_BASIS_POINTS)) / BASIS_POINTS;
+        xbtcAmountOut = (xbtcReserve * xusdcAmountInAfterFee) / (xusdcReserve + xusdcAmountInAfterFee);
         
         if (xbtcAmountOut >= xbtcReserve) {
             return 0;
@@ -122,12 +122,12 @@ contract DummySwap {
     
     // Get current reserves
     function getReserves() external view returns (uint256, uint256) {
-        return (xbtcReserve, xusdReserve);
+        return (xbtcReserve, xusdcReserve);
     }
     
-    // Get current price (xBTC in terms of xUSD)
+    // Get current price (xBTC in terms of xUSDC)
     function getPrice() external view returns (uint256) {
         if (xbtcReserve == 0) return 0;
-        return (xusdReserve * 1e18) / xbtcReserve;
+        return (xusdcReserve * 1e18) / xbtcReserve;
     }
 }

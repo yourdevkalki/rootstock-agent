@@ -86,8 +86,8 @@ export async function getBTCPrice() {
   }
 }
 
-// Get USD price (always 1.0, but useful for consistency)
-export async function getUSDPrice() {
+// Get USDC price from Pyth (should be close to 1.0)
+export async function getUSDCPrice() {
   if (isMock()) {
     return {
       price: 100000000, // $1.00 in 8 decimal places
@@ -113,12 +113,12 @@ export async function getUSDPrice() {
   }
 }
 
-// Get both xBTC and xUSD prices (pegged to real BTC and USD)
+// Get both xBTC and xUSDC prices (pegged to real BTC and USDC)
 export async function getTokenPrices() {
   try {
-    const [btcPrice, usdPrice] = await Promise.all([
+    const [btcPrice, usdcPrice] = await Promise.all([
       getBTCPrice(),
-      getUSDPrice(),
+      getUSDCPrice(),
     ]);
 
     return {
@@ -127,10 +127,10 @@ export async function getTokenPrices() {
         ...btcPrice,
         name: "Dummy Bitcoin",
       },
-      xUSD: {
-        symbol: "xUSD",
-        ...usdPrice,
-        name: "Dummy USD",
+      xUSDC: {
+        symbol: "xUSDC",
+        ...usdcPrice,
+        name: "Dummy USDC",
       },
       lastUpdated: new Date().toISOString(),
     };

@@ -12,7 +12,7 @@ async function testSwap() {
 
   // Contract addresses from deployment
   const XBTC_ADDRESS = "0x18A1d7F323a90DDE8e5Efc42971cF06Ad5B759b8";
-  const XUSD_ADDRESS = "0xB39E2eeB5063881D452616dff1BcE19d79C3375D";
+  const XUSDC_ADDRESS = "0xB39E2eeB5063881D452616dff1BcE19d79C3375D";
   const DUMMY_SWAP_ADDRESS = "0x79D45320480ED0a4C7e2885b14aBBfdE394Fb353";
 
   // ABIs
@@ -24,15 +24,19 @@ async function testSwap() {
   ];
 
   const SWAP_ABI = [
-    "function swapXBTCForXUSD(uint256 xbtcAmountIn) external",
-    "function getXBTCToXUSDQuote(uint256 xbtcAmountIn) external view returns (uint256)",
+    "function swapXBTCForXUSDC(uint256 xbtcAmountIn) external",
+    "function getXBTCToXUSDCQuote(uint256 xbtcAmountIn) external view returns (uint256)",
     "function getReserves() external view returns (uint256, uint256)",
   ];
 
   try {
     // Initialize contracts
     const xbtcContract = new ethers.Contract(XBTC_ADDRESS, ERC20_ABI, deployer);
-    const xusdContract = new ethers.Contract(XUSD_ADDRESS, ERC20_ABI, deployer);
+    const xusdcContract = new ethers.Contract(
+      XUSDC_ADDRESS,
+      ERC20_ABI,
+      deployer
+    );
     const swapContract = new ethers.Contract(
       DUMMY_SWAP_ADDRESS,
       SWAP_ABI,
@@ -41,13 +45,13 @@ async function testSwap() {
 
     console.log("\\n1️⃣ Checking initial balances...");
 
-    const [xbtcBalance, xusdBalance] = await Promise.all([
+    const [xbtcBalance, xusdcBalance] = await Promise.all([
       xbtcContract.balanceOf(deployer.address),
-      xusdContract.balanceOf(deployer.address),
+      xusdcContract.balanceOf(deployer.address),
     ]);
 
     console.log(`xBTC Balance: ${ethers.formatEther(xbtcBalance)}`);
-    console.log(`xUSD Balance: ${ethers.formatEther(xusdBalance)}`);
+    console.log(`xUSDC Balance: ${ethers.formatEther(xusdcBalance)}`);
 
     // Mint some xBTC if balance is too low
     const swapAmount = ethers.parseEther("0.1"); // 0.1 xBTC
@@ -62,19 +66,19 @@ async function testSwap() {
     }
 
     console.log("\\n3️⃣ Getting swap quote...");
-    const quote = await swapContract.getXBTCToXUSDQuote(swapAmount);
+    const quote = await swapContract.getXBTCToXUSDCQuote(swapAmount);
     console.log(
       `Quote: ${ethers.formatEther(swapAmount)} xBTC → ${ethers.formatEther(
         quote
-      )} xUSD`
+      )} xUSDC`
     );
 
     console.log("\\n4️⃣ Checking pool reserves...");
-    const [xbtcReserve, xusdReserve] = await swapContract.getReserves();
+    const [xbtcReserve, xusdcReserve] = await swapContract.getReserves();
     console.log(
       `Pool reserves: ${ethers.formatEther(
         xbtcReserve
-      )} xBTC, ${ethers.formatEther(xusdReserve)} xUSD`
+      )} xBTC, ${ethers.formatEther(xusdcReserve)} xUSDC`
     );
 
     console.log("\\n5️⃣ Approving xBTC for swap...");
@@ -86,7 +90,7 @@ async function testSwap() {
     console.log("✅ Approval confirmed");
 
     console.log("\\n6️⃣ Executing swap...");
-    const swapTx = await swapContract.swapXBTCForXUSD(swapAmount);
+    const swapTx = await swapContract.swapXBTCForXUSDC(swapAmount);
     console.log("Transaction sent:", swapTx.hash);
 
     const receipt = await swapTx.wait();
@@ -94,25 +98,27 @@ async function testSwap() {
     console.log("Gas used:", receipt.gasUsed.toString());
 
     console.log("\\n7️⃣ Checking final balances...");
-    const [finalXbtcBalance, finalXusdBalance] = await Promise.all([
+    const [finalXbtcBalance, finalXusdcBalance] = await Promise.all([
       xbtcContract.balanceOf(deployer.address),
-      xusdContract.balanceOf(deployer.address),
+      xusdcContract.balanceOf(deployer.address),
     ]);
 
     console.log(`Final xBTC Balance: ${ethers.formatEther(finalXbtcBalance)}`);
-    console.log(`Final xUSD Balance: ${ethers.formatEther(finalXusdBalance)}`);
+    console.log(
+      `Final xUSDC Balance: ${ethers.formatEther(finalXusdcBalance)}`
+    );
 
     const xbtcDiff = xbtcBalance - finalXbtcBalance;
-    const xusdDiff = finalXusdBalance - xusdBalance;
+    const xusdcDiff = finalXusdcBalance - xusdcBalance;
 
     console.log("\\n📊 Swap Summary:");
     console.log(`Swapped: ${ethers.formatEther(xbtcDiff)} xBTC`);
-    console.log(`Received: ${ethers.formatEther(xusdDiff)} xUSD`);
+    console.log(`Received: ${ethers.formatEther(xusdcDiff)} xUSDC`);
     console.log(
       `Effective Rate: 1 xBTC = ${
-        parseFloat(ethers.formatEther(xusdDiff)) /
+        parseFloat(ethers.formatEther(xusdcDiff)) /
         parseFloat(ethers.formatEther(xbtcDiff))
-      } xUSD`
+      } xUSDC`
     );
 
     console.log("\\n🎉 Swap test completed successfully!");

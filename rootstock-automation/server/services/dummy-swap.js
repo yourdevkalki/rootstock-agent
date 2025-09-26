@@ -11,7 +11,7 @@ const wallet = PRIVATE_KEY ? new ethers.Wallet(PRIVATE_KEY, provider) : null;
 // Contract addresses - these will be set after deployment
 export let DUMMY_SWAP_ADDRESSES = {
   XBTC: process.env.XBTC_ADDRESS || "",
-  XUSD: process.env.XUSD_ADDRESS || "",
+  XUSDC: process.env.XUSDC_ADDRESS || "",
   DUMMY_SWAP: process.env.DUMMY_SWAP_ADDRESS || "",
 };
 
@@ -36,26 +36,26 @@ const ERC20_ABI = [
 // DummySwap ABI
 const DUMMY_SWAP_ABI = [
   "function xbtc() external view returns (address)",
-  "function xusd() external view returns (address)",
+  "function xusdc() external view returns (address)",
   "function xbtcReserve() external view returns (uint256)",
-  "function xusdReserve() external view returns (uint256)",
-  "function addLiquidity(uint256 xbtcAmount, uint256 xusdAmount) external",
-  "function swapXBTCForXUSD(uint256 xbtcAmountIn) external",
-  "function swapXUSDForXBTC(uint256 xusdAmountIn) external",
-  "function getXBTCToXUSDQuote(uint256 xbtcAmountIn) external view returns (uint256)",
-  "function getXUSDToXBTCQuote(uint256 xusdAmountIn) external view returns (uint256)",
+  "function xusdcReserve() external view returns (uint256)",
+  "function addLiquidity(uint256 xbtcAmount, uint256 xusdcAmount) external",
+  "function swapXBTCForXUSDC(uint256 xbtcAmountIn) external",
+  "function swapXUSDCForXBTC(uint256 xusdcAmountIn) external",
+  "function getXBTCToXUSDCQuote(uint256 xbtcAmountIn) external view returns (uint256)",
+  "function getXUSDCToXBTCQuote(uint256 xusdcAmountIn) external view returns (uint256)",
   "function getReserves() external view returns (uint256, uint256)",
   "function getPrice() external view returns (uint256)",
   "event Swap(address indexed user, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut)",
-  "event LiquidityAdded(address indexed provider, uint256 xbtcAmount, uint256 xusdAmount)",
+  "event LiquidityAdded(address indexed provider, uint256 xbtcAmount, uint256 xusdcAmount)",
 ];
 
 // Get token info
 export async function getTokenInfo(tokenAddress) {
   if (isMock()) {
     return {
-      name: tokenAddress.includes("xBTC") ? "Dummy Bitcoin" : "Dummy USD",
-      symbol: tokenAddress.includes("xBTC") ? "xBTC" : "xUSD",
+      name: tokenAddress.includes("xBTC") ? "Dummy Bitcoin" : "Dummy USDC",
+      symbol: tokenAddress.includes("xBTC") ? "xBTC" : "xUSDC",
       decimals: 18,
       address: tokenAddress,
     };
@@ -161,14 +161,14 @@ export async function getSwapQuote(tokenIn, tokenOut, amountIn) {
     let amountOut;
     if (
       tokenIn === DUMMY_SWAP_ADDRESSES.XBTC &&
-      tokenOut === DUMMY_SWAP_ADDRESSES.XUSD
+      tokenOut === DUMMY_SWAP_ADDRESSES.XUSDC
     ) {
-      amountOut = await contract.getXBTCToXUSDQuote(amountIn);
+      amountOut = await contract.getXBTCToXUSDCQuote(amountIn);
     } else if (
-      tokenIn === DUMMY_SWAP_ADDRESSES.XUSD &&
+      tokenIn === DUMMY_SWAP_ADDRESSES.XUSDC &&
       tokenOut === DUMMY_SWAP_ADDRESSES.XBTC
     ) {
-      amountOut = await contract.getXUSDToXBTCQuote(amountIn);
+      amountOut = await contract.getXUSDCToXBTCQuote(amountIn);
     } else {
       throw new Error("Invalid token pair");
     }
@@ -238,14 +238,14 @@ export async function executeSwap(
     let tx;
     if (
       tokenIn === DUMMY_SWAP_ADDRESSES.XBTC &&
-      tokenOut === DUMMY_SWAP_ADDRESSES.XUSD
+      tokenOut === DUMMY_SWAP_ADDRESSES.XUSDC
     ) {
-      tx = await contract.swapXBTCForXUSD(amountIn);
+      tx = await contract.swapXBTCForXUSDC(amountIn);
     } else if (
-      tokenIn === DUMMY_SWAP_ADDRESSES.XUSD &&
+      tokenIn === DUMMY_SWAP_ADDRESSES.XUSDC &&
       tokenOut === DUMMY_SWAP_ADDRESSES.XBTC
     ) {
-      tx = await contract.swapXUSDForXBTC(amountIn);
+      tx = await contract.swapXUSDCForXBTC(amountIn);
     } else {
       throw new Error("Invalid token pair");
     }
@@ -285,7 +285,7 @@ export async function getSwapInfo() {
   if (isMock()) {
     return {
       xbtcReserve: ethers.parseEther("100").toString(),
-      xusdReserve: ethers.parseEther("6500000").toString(),
+      xusdcReserve: ethers.parseEther("6500000").toString(),
       price: ethers.parseEther("65000").toString(),
       priceFormatted: "65000.0",
     };
@@ -305,7 +305,7 @@ export async function getSwapInfo() {
 
     return {
       xbtcReserve: reserves[0].toString(),
-      xusdReserve: reserves[1].toString(),
+      xusdcReserve: reserves[1].toString(),
       price: price.toString(),
       priceFormatted: ethers.formatEther(price),
     };
@@ -315,12 +315,12 @@ export async function getSwapInfo() {
 }
 
 // Add liquidity (for admin use)
-export async function addLiquidity(xbtcAmount, xusdAmount) {
+export async function addLiquidity(xbtcAmount, xusdcAmount) {
   if (isMock()) {
     return {
       txHash: "0x" + "mock".repeat(16),
       xbtcAmount,
-      xusdAmount,
+      xusdcAmount,
       gasUsed: "50000",
       success: true,
     };
@@ -345,15 +345,15 @@ export async function addLiquidity(xbtcAmount, xusdAmount) {
       ERC20_ABI,
       wallet
     );
-    const xusdContract = new ethers.Contract(
-      DUMMY_SWAP_ADDRESSES.XUSD,
+    const xusdcContract = new ethers.Contract(
+      DUMMY_SWAP_ADDRESSES.XUSDC,
       ERC20_ABI,
       wallet
     );
 
-    const [xbtcAllowance, xusdAllowance] = await Promise.all([
+    const [xbtcAllowance, xusdcAllowance] = await Promise.all([
       xbtcContract.allowance(wallet.address, DUMMY_SWAP_ADDRESSES.DUMMY_SWAP),
-      xusdContract.allowance(wallet.address, DUMMY_SWAP_ADDRESSES.DUMMY_SWAP),
+      xusdcContract.allowance(wallet.address, DUMMY_SWAP_ADDRESSES.DUMMY_SWAP),
     ]);
 
     const approvals = [];
@@ -362,9 +362,9 @@ export async function addLiquidity(xbtcAmount, xusdAmount) {
         xbtcContract.approve(DUMMY_SWAP_ADDRESSES.DUMMY_SWAP, xbtcAmount)
       );
     }
-    if (xusdAllowance < xusdAmount) {
+    if (xusdcAllowance < xusdcAmount) {
       approvals.push(
-        xusdContract.approve(DUMMY_SWAP_ADDRESSES.DUMMY_SWAP, xusdAmount)
+        xusdcContract.approve(DUMMY_SWAP_ADDRESSES.DUMMY_SWAP, xusdcAmount)
       );
     }
 
@@ -372,13 +372,13 @@ export async function addLiquidity(xbtcAmount, xusdAmount) {
       await Promise.all(approvals.map((tx) => tx.then((t) => t.wait())));
     }
 
-    const tx = await contract.addLiquidity(xbtcAmount, xusdAmount);
+    const tx = await contract.addLiquidity(xbtcAmount, xusdcAmount);
     const receipt = await tx.wait();
 
     return {
       txHash: receipt.hash,
       xbtcAmount,
-      xusdAmount,
+      xusdcAmount,
       gasUsed: receipt.gasUsed.toString(),
       success: true,
     };

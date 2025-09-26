@@ -35,13 +35,13 @@ async function testDummyTokens() {
     // Mock addresses for testing
     const mockAddresses = {
       XBTC: "0x" + "1".repeat(40),
-      XUSD: "0x" + "2".repeat(40),
+      XUSDC: "0x" + "2".repeat(40),
       DUMMY_SWAP: "0x" + "3".repeat(40),
     };
 
     console.log("Mock Contract Addresses:");
     console.log(`  xBTC: ${mockAddresses.XBTC}`);
-    console.log(`  xUSD: ${mockAddresses.XUSD}`);
+    console.log(`  xUSDC: ${mockAddresses.XUSDC}`);
     console.log(`  DummySwap: ${mockAddresses.DUMMY_SWAP}`);
 
     // Test 4: API endpoint simulation
@@ -55,11 +55,11 @@ async function testDummyTokens() {
         decimals: 18,
         address: mockAddresses.XBTC,
       },
-      xUSD: {
-        name: "Dummy USD",
-        symbol: "xUSD",
+      xUSDC: {
+        name: "Dummy USDC",
+        symbol: "xUSDC",
         decimals: 18,
-        address: mockAddresses.XUSD,
+        address: mockAddresses.XUSDC,
       },
     };
 
@@ -70,7 +70,7 @@ async function testDummyTokens() {
 
     const mockQuote = {
       tokenIn: mockAddresses.XBTC,
-      tokenOut: mockAddresses.XUSD,
+      tokenOut: mockAddresses.XUSDC,
       amountIn: ethers.parseEther("1").toString(),
       amountOut: ethers.parseEther("65000").toString(),
       rate: "65000",
@@ -78,8 +78,8 @@ async function testDummyTokens() {
 
     console.log("Mock Swap Quote:");
     console.log(`  Input: 1 xBTC`);
-    console.log(`  Output: 65,000 xUSD`);
-    console.log(`  Rate: 1 xBTC = 65,000 xUSD`);
+    console.log(`  Output: 65,000 xUSDC`);
+    console.log(`  Rate: 1 xBTC = 65,000 xUSDC`);
 
     // Test 6: Price feed simulation
     console.log("\n6️⃣ Testing Pyth price integration...");
@@ -106,13 +106,13 @@ async function testDummyTokens() {
 
     const reserves = {
       xbtc: ethers.parseEther("100"), // 100 xBTC
-      xusd: ethers.parseEther("6500000"), // 6.5M xUSD
+      xusdc: ethers.parseEther("6500000"), // 6.5M xUSDC
     };
 
-    const k = reserves.xbtc * reserves.xusd;
+    const k = reserves.xbtc * reserves.xusdc;
     console.log("Initial Reserves:");
     console.log(`  xBTC: ${ethers.formatEther(reserves.xbtc)}`);
-    console.log(`  xUSD: ${ethers.formatEther(reserves.xusd)}`);
+    console.log(`  xUSDC: ${ethers.formatEther(reserves.xusdc)}`);
     console.log(`  Constant K: ${k}`);
 
     // Simulate swap: 1 xBTC in
@@ -120,11 +120,11 @@ async function testDummyTokens() {
     const fee = 30; // 0.3%
     const amountInAfterFee = (amountIn * BigInt(10000 - fee)) / BigInt(10000);
     const newXbtcReserve = reserves.xbtc + amountInAfterFee;
-    const newXusdReserve = k / newXbtcReserve;
-    const amountOut = reserves.xusd - newXusdReserve;
+    const newXusdcReserve = k / newXbtcReserve;
+    const amountOut = reserves.xusdc - newXusdcReserve;
 
     console.log("After 1 xBTC swap:");
-    console.log(`  Amount out: ${ethers.formatEther(amountOut)} xUSD`);
+    console.log(`  Amount out: ${ethers.formatEther(amountOut)} xUSDC`);
     console.log(
       `  Price impact: ${((Number(amountOut) / 65000 - 1) * 100).toFixed(2)}%`
     );
@@ -136,7 +136,7 @@ async function testDummyTokens() {
     const optionalEnvVars = [
       "PRIVATE_KEY",
       "XBTC_ADDRESS",
-      "XUSD_ADDRESS",
+      "XUSDC_ADDRESS",
       "DUMMY_SWAP_ADDRESS",
     ];
 
