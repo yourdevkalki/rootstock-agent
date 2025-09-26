@@ -36,3 +36,16 @@ Pitch / Vision
 In short: It’s like Gelato, but open-source, early on Rootstock, and designed for any DeFi automation task.
 
 If you want, I can also draw a simple diagram showing Task → Resolver → Executor → Execution — makes it super easy to explain to judges and teammates. Do you want me to do that?
+
+
+
+User Wallet  ---->  TaskRegistry (Smart Contract)
+   |                       |
+   | (create task)         | emits TaskCreated event
+   |                       v
+   |               Executor Bot (Node.js)
+   |                       |
+   | (task executed)       | calls target contract
+   |                       |
+   v                       v
+ LP Staking Contract <---- Execution
