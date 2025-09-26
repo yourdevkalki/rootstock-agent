@@ -2,43 +2,65 @@
 pragma solidity ^0.8.25;
 
 contract TaskRegistry {
+    enum ResolverType {
+        Time,
+        Price
+    }
+
     struct Task {
         address creator;
         address targetContract;
         bytes callData;
-        uint256 interval;
+        ResolverType resolverType;
+        bytes resolverData; // ABI-encoded resolver-specific data (e.g., interval or price params)
         uint256 lastRun;
         bool active;
     }
 
     Task[] public tasks;
 
-    event TaskCreated(uint256 indexed taskId, address indexed creator, address targetContract);
-    event TaskExecuted(uint256 indexed taskId, bool success);
+    event TaskCreated(
+        uint256 indexed taskId,
+        address indexed creator,
+        address indexed targetContract,
+        ResolverType resolverType,
+        bytes resolverData
+    );
+    event TaskExecuted(uint256 indexed taskId, address indexed executor, bool success, bytes returnData);
     event TaskCancelled(uint256 indexed taskId);
 
-    function createTask(address _targetContract, bytes calldata _callData, uint256 _interval) external returns (uint256) {
-        tasks.push(Task({
-            creator: msg.sender,
-            targetContract: _targetContract,
-            callData: _callData,
-            interval: _interval,
-            lastRun: block.timestamp,
-            active: true
-        }));
+    function createTask(
+        address _targetContract,
+        bytes calldata _callData,
+        ResolverType _resolverType,
+        bytes calldata _resolverData
+    ) external returns (uint256) {
+        tasks.push(
+            Task({
+                creator: msg.sender,
+                targetContract: _targetContract,
+                callData: _callData,
+                resolverType: _resolverType,
+                resolverData: _resolverData,
+                lastRun: block.timestamp,
+                active: true
+            })
+        );
 
         uint256 taskId = tasks.length - 1;
-        emit TaskCreated(taskId, msg.sender, _targetContract);
+        emit TaskCreated(taskId, msg.sender, _targetContract, _resolverType, _resolverData);
         return taskId;
     }
 
-    function markExecuted(uint256 _taskId) external {
+    function executeTask(uint256 _taskId) external returns (bool success, bytes memory returnData) {
         require(_taskId < tasks.length, "Invalid task");
         Task storage task = tasks[_taskId];
         require(task.active, "Task inactive");
 
+        (success, returnData) = task.targetContract.call(task.callData);
         task.lastRun = block.timestamp;
-        emit TaskExecuted(_taskId, true);
+
+        emit TaskExecuted(_taskId, msg.sender, success, returnData);
     }
 
     function cancelTask(uint256 _taskId) external {
@@ -54,15 +76,28 @@ contract TaskRegistry {
         return tasks.length;
     }
 
-    function getTask(uint256 _taskId) external view returns (
-        address creator,
-        address targetContract,
-        bytes memory callData,
-        uint256 interval,
-        uint256 lastRun,
-        bool active
-    ) {
+    function getTask(uint256 _taskId)
+        external
+        view
+        returns (
+            address creator,
+            address targetContract,
+            bytes memory callData,
+            ResolverType resolverType,
+            bytes memory resolverData,
+            uint256 lastRun,
+            bool active
+        )
+    {
         Task storage task = tasks[_taskId];
-        return (task.creator, task.targetContract, task.callData, task.interval, task.lastRun, task.active);
+        return (
+            task.creator,
+            task.targetContract,
+            task.callData,
+            task.resolverType,
+            task.resolverData,
+            task.lastRun,
+            task.active
+        );
     }
 }

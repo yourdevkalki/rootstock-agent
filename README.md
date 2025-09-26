@@ -36,3 +36,36 @@ Pitch / Vision
 In short: It’s like Gelato, but open-source, early on Rootstock, and designed for any DeFi automation task.
 
 If you want, I can also draw a simple diagram showing Task → Resolver → Executor → Execution — makes it super easy to explain to judges and teammates. Do you want me to do that?
+
+## Backend (Express + Pyth) Overview
+
+This repo includes an Express API and background worker that integrates with Pyth price feeds to schedule on-chain tasks via the `TaskRegistry` contract. Two resolver types are supported:
+
+- Time-based: execute every N seconds
+- Price-based: execute when a Pyth price meets a comparator (>= or <= target)
+
+Key endpoints:
+
+- `GET /health` – health check
+- `GET /tasks` – list tasks
+- `POST /tasks/time` – create time task { targetContract, functionSignature, args, intervalSeconds }
+- `POST /tasks/price` – create price task { targetContract, functionSignature, args, priceId, comparator, targetPrice, targetExpo }
+- `POST /tasks/:taskId/execute` – force execute a task
+- `POST /tasks/:taskId/cancel` – cancel a task
+
+Run API:
+
+```bash
+cd rootstock-automation
+npm i
+# set environment
+# export PORT=3000 WORKER_POLL_MS=30000 \
+# RPC_URL=https://public-node.rsk.co PRIVATE_KEY=0xabc... \
+# CONTRACT_ADDRESS=0xYourTaskRegistryAddress PYTH_HERMES_URL=https://hermes.pyth.network
+npm run dev
+```
+
+References:
+
+- Pyth EVM guide: https://docs.pyth.network/price-feeds/use-real-time-data/evm
+- Rootstock Uniswap V3 pools (example): https://oku.trade/app/rootstock/pool/0xd2ffe51ab4e622a411abbe634832a19d919e9c55?utm_source=uniswap&utm_medium=forum&utm_campaign=rootstocktemp
