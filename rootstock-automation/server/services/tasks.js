@@ -1,5 +1,6 @@
 import { ethers } from "ethers";
 import { getLatestPythPrice, comparePrice } from "./pyth.js";
+import { isMock } from "../py.config.mjs";
 
 const RPC_URL = process.env.RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
@@ -30,6 +31,7 @@ export function abiEncodeFunctionCalldata(functionSignature, args) {
 }
 
 export async function createTimeTask(targetContract, callData, intervalSeconds) {
+  if (isMock()) return "1";
   const resolverData = coder.encode(["uint256"], [intervalSeconds]);
   const tx = await contract.createTask(targetContract, callData, 0, resolverData);
   const receipt = await tx.wait();
@@ -46,6 +48,7 @@ export async function createTimeTask(targetContract, callData, intervalSeconds) 
 }
 
 export async function createPriceTask(targetContract, callData, priceId, comparator, targetPrice, targetExpo) {
+  if (isMock()) return "2";
   const comparatorFlag = comparator === "gte" ? 0 : 1; // 0: >=, 1: <=
   const resolverData = coder.encode(["bytes32", "int64", "int32", "uint8"], [priceId, targetPrice, targetExpo, comparatorFlag]);
   const tx = await contract.createTask(targetContract, callData, 1, resolverData);
@@ -63,6 +66,7 @@ export async function createPriceTask(targetContract, callData, priceId, compara
 }
 
 export async function getAllTasks() {
+  if (isMock()) return [];
   const count = await contract.getTaskCount();
   const tasks = [];
   for (let i = 0n; i < count; i++) {
@@ -74,6 +78,7 @@ export async function getAllTasks() {
 }
 
 export async function describeTask(taskId) {
+  if (isMock()) return { taskId: String(taskId), active: true, resolver: { type: "Time", interval: "60" }, lastRun: "0" };
   const t = await contract.getTask(taskId);
   return formatTask(BigInt(taskId), t);
 }
@@ -109,6 +114,7 @@ async function formatTask(taskId, tuple) {
 }
 
 export async function executeTask(taskId) {
+  if (isMock()) return { txHash: "0xmock", success: true };
   const tx = await contract.executeTask(taskId);
   const receipt = await tx.wait();
   const ev = receipt.logs
@@ -124,6 +130,7 @@ export async function executeTask(taskId) {
 }
 
 export async function cancelTask(taskId) {
+  if (isMock()) return { ok: true };
   const tx = await contract.cancelTask(taskId);
   await tx.wait();
 }

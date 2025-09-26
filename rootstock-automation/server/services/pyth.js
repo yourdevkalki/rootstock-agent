@@ -1,10 +1,12 @@
 import { PriceServiceConnection } from "@pythnetwork/price-service-client";
+import { isMock } from "../py.config.mjs";
 
 const HERMES_URL = process.env.PYTH_HERMES_URL || "https://hermes.pyth.network";
 
 const connection = new PriceServiceConnection(HERMES_URL, { timeout: 10_000 });
 
 export async function getLatestPythPrice(priceId) {
+  if (isMock()) return { price: -11109000000, expo: -8 };
   const updates = await connection.getLatestPriceUpdates([priceId]);
   if (!updates || !updates.length) throw new Error("No price updates from Pyth");
   const feed = updates[0];

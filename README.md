@@ -58,10 +58,13 @@ Run API:
 ```bash
 cd rootstock-automation
 npm i
-# set environment
-# export PORT=3000 WORKER_POLL_MS=30000 \
-# RPC_URL=https://public-node.rsk.co PRIVATE_KEY=0xabc... \
-# CONTRACT_ADDRESS=0xYourTaskRegistryAddress PYTH_HERMES_URL=https://hermes.pyth.network
+# set environment (env file included for testnet)
+# cp .env.example .env  # if example exists, or set the vars below:
+# export PORT=3000 WORKER_POLL_MS=15000 \
+# RPC_URL=https://rpc.testnet.rootstock.io/<YOUR-KEY> \
+# PRIVATE_KEY=0x<YOUR-KEY> \
+# CONTRACT_ADDRESS=<DEPLOYED_TASK_REGISTRY> \
+# PYTH_HERMES_URL=https://hermes.pyth.network
 npm run dev
 ```
 
@@ -69,3 +72,30 @@ References:
 
 - Pyth EVM guide: https://docs.pyth.network/price-feeds/use-real-time-data/evm
 - Rootstock Uniswap V3 pools (example): https://oku.trade/app/rootstock/pool/0xd2ffe51ab4e622a411abbe634832a19d919e9c55?utm_source=uniswap&utm_medium=forum&utm_campaign=rootstocktemp
+
+### API additions for frontend
+
+- `GET /tasks/spender` → `{ spender }` address to approve allowances for
+- `GET /tasks/allowance?token=<addr>&owner=<addr>[&spender=<addr>]` → allowance info
+- `GET /tasks/price/:priceId` → latest Pyth price `{ price, expo }`
+- `POST /tasks/strategy` → store strategy and optionally persist on-chain task. Body example:
+  ```json
+  {
+    "wallet": "0x...",
+    "persistOnChain": true,
+    "router": "0x...",
+    "tokenIn": "0x...",
+    "tokenOut": "0x...",
+    "fee": 500,
+    "amountIn": "100000000000000000",
+    "minOut": "90000000",
+    "recipient": "0x...",
+    "deadline": 2000000000,
+    "owner": "0x...",
+    "priceId": "0x<pyth_price_id_bytes32>",
+    "comparator": "gte",
+    "targetPrice": "-11109000000",
+    "targetExpo": -8
+  }
+  ```
+- `GET /tasks/strategy/:wallet` → returns stored strategies for a wallet

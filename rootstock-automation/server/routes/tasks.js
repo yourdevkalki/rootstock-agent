@@ -8,6 +8,9 @@ import {
   executeTask,
   getAllTasks,
 } from "../services/tasks.js";
+import { getLatestPythPrice } from "../services/pyth.js";
+import { getAllowance } from "../services/erc20.js";
+import { getSpenderAddress, storeUserStrategy, getUserStrategies, createLimitOrderTask } from "../services/user.js";
 
 const router = Router();
 
@@ -36,6 +39,45 @@ router.post("/price", async (req, res) => {
   const callData = abiEncodeFunctionCalldata(functionSignature, args || []);
   const taskId = await createPriceTask(targetContract, callData, priceId, comparator, BigInt(targetPrice), Number(targetExpo));
   res.json({ taskId });
+});
+
+// Pricing endpoint via Pyth
+router.get("/price/:priceId", async (req, res) => {
+  const { priceId } = req.params;
+  const data = await getLatestPythPrice(priceId);
+  res.json(data);
+});
+
+// Spender address for allowances
+router.get("/spender", async (_req, res) => {
+  res.json({ spender: getSpenderAddress() });
+});
+
+// Query current allowance of an owner for a token toward spender
+router.get("/allowance", async (req, res) => {
+  const { token, owner, spender } = req.query;
+  if (!token || !owner) return res.status(400).json({ error: "token and owner required" });
+  const useSpender = spender || getSpenderAddress();
+  const info = await getAllowance(token, owner, useSpender);
+  res.json({ spender: useSpender, ...info });
+});
+
+// Store user strategy metadata (in-memory), and optionally create on-chain price task
+router.post("/strategy", async (req, res) => {
+  const body = req.body || {};
+  const { wallet, persistOnChain } = body;
+  if (!wallet) return res.status(400).json({ error: "wallet required" });
+  storeUserStrategy(wallet, body);
+  let taskId = null;
+  if (persistOnChain) {
+    taskId = await createLimitOrderTask(body);
+  }
+  res.json({ ok: true, taskId });
+});
+
+router.get("/strategy/:wallet", async (req, res) => {
+  const { wallet } = req.params;
+  res.json(getUserStrategies(wallet));
 });
 
 router.post("/:taskId/execute", async (req, res) => {

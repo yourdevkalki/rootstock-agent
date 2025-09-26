@@ -5,6 +5,7 @@ import morgan from "morgan";
 import tasksRouter from "./routes/tasks.js";
 import { startWorker } from "./worker.js";
 import { wireEventLogs } from "./events.js";
+import { eventsDisabled } from "./py.config.mjs";
 
 const app = express();
 app.use(cors());
@@ -19,10 +20,13 @@ app.use("/tasks", tasksRouter);
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+let server;
+if (process.env.DISABLE_LISTEN !== "1") {
+  server = app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`API listening on :${PORT}`);
-});
+  });
+}
 
 // kick background worker
 startWorker().catch((err) => {
@@ -30,7 +34,12 @@ startWorker().catch((err) => {
   console.error("Worker failed to start", err);
 });
 
-// wire events
-wireEventLogs();
+// wire events (optional for some RPCs which do not support filters)
+if (!eventsDisabled()) {
+  try { wireEventLogs(); } catch (e) { console.error("Event wire failed", e?.message || e); }
+}
+
+export default app;
+export { server };
 
 

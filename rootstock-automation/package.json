@@ -4,12 +4,13 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npm run api:test",
     "dev": "node server/index.js",
     "bot": "node bot/automation.js",
     "hh:test": "hardhat test",
     "hh:deploy:testnet": "hardhat run scripts/deploy.js --network rootstock_testnet",
-    "hh:register:testnet": "hardhat run scripts/register-task.js --network rootstock_testnet"
+    "hh:register:testnet": "hardhat run scripts/register-task.js --network rootstock_testnet",
+    "api:test": "RPC_URL=https://public-node.testnet.rsk.co PRIVATE_KEY=0x1234567890123456789012345678901234567890123456789012345678901234 CONTRACT_ADDRESS=0x1234567890123456789012345678901234567890 OFFCHAIN_MOCK=1 DISABLE_EVENT_SUBS=1 DISABLE_LISTEN=1 mocha --require dotenv/config server/test/api.test.js"
   },
   "keywords": [],
   "author": "",
@@ -17,14 +18,17 @@
   "description": "",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "chai": "^4.5.0",
     "dotenv": "^17.2.2",
     "hardhat": "^2.26.3"
   },
   "dependencies": {
+    "@pythnetwork/price-service-client": "^1.9.0",
     "cors": "^2.8.5",
     "ethers": "^6.15.0",
     "express": "^4.19.2",
+    "mocha": "^11.7.2",
     "morgan": "^1.10.0",
-    "@pythnetwork/price-service-client": "^1.9.0"
+    "supertest": "^7.1.4"
   }
 }
