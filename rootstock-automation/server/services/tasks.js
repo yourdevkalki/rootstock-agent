@@ -30,10 +30,19 @@ export function abiEncodeFunctionCalldata(functionSignature, args) {
   return iface.encodeFunctionData(fragmentName, args);
 }
 
-export async function createTimeTask(targetContract, callData, intervalSeconds) {
+export async function createTimeTask(
+  targetContract,
+  callData,
+  intervalSeconds
+) {
   if (isMock()) return "1";
   const resolverData = coder.encode(["uint256"], [intervalSeconds]);
-  const tx = await contract.createTask(targetContract, callData, 0, resolverData);
+  const tx = await contract.createTask(
+    targetContract,
+    callData,
+    0,
+    resolverData
+  );
   const receipt = await tx.wait();
   const event = receipt.logs
     .map((l) => {
@@ -47,11 +56,26 @@ export async function createTimeTask(targetContract, callData, intervalSeconds) 
   return event?.args?.taskId?.toString() ?? null;
 }
 
-export async function createPriceTask(targetContract, callData, priceId, comparator, targetPrice, targetExpo) {
+export async function createPriceTask(
+  targetContract,
+  callData,
+  priceId,
+  comparator,
+  targetPrice,
+  targetExpo
+) {
   if (isMock()) return "2";
   const comparatorFlag = comparator === "gte" ? 0 : 1; // 0: >=, 1: <=
-  const resolverData = coder.encode(["bytes32", "int64", "int32", "uint8"], [priceId, targetPrice, targetExpo, comparatorFlag]);
-  const tx = await contract.createTask(targetContract, callData, 1, resolverData);
+  const resolverData = coder.encode(
+    ["bytes32", "int64", "int32", "uint8"],
+    [priceId, targetPrice, targetExpo, comparatorFlag]
+  );
+  const tx = await contract.createTask(
+    targetContract,
+    callData,
+    1,
+    resolverData
+  );
   const receipt = await tx.wait();
   const event = receipt.logs
     .map((l) => {
@@ -78,30 +102,58 @@ export async function getAllTasks() {
 }
 
 export async function describeTask(taskId) {
-  if (isMock()) return { taskId: String(taskId), active: true, resolver: { type: "Time", interval: "60" }, lastRun: "0" };
+  if (isMock())
+    return {
+      taskId: String(taskId),
+      active: true,
+      resolver: { type: "Time", interval: "60" },
+      lastRun: "0",
+    };
   const t = await contract.getTask(taskId);
   return formatTask(BigInt(taskId), t);
 }
 
 async function formatTask(taskId, tuple) {
-  const [creator, targetContract, callData, resolverType, resolverData, lastRun, active] = tuple;
-  const typeStr = resolverType === 0 ? "Time" : "Price";
+  const [
+    creator,
+    targetContract,
+    callData,
+    resolverType,
+    resolverData,
+    lastRun,
+    active,
+  ] = tuple;
+  const typeStr = resolverType === 0n ? "Time" : "Price";
   let decoded;
-  if (resolverType === 0) {
-    const [interval] = coder.decode(["uint256"], resolverData);
-    decoded = { interval: interval.toString() };
-  } else {
-    const [priceId, targetPrice, targetExpo, comparatorFlag] = coder.decode(
-      ["bytes32", "int64", "int32", "uint8"],
-      resolverData
+
+  try {
+    if (resolverType === 0n) {
+      // Time-based task: expect uint256 interval
+      const [interval] = coder.decode(["uint256"], resolverData);
+      decoded = { interval: interval.toString() };
+    } else {
+      // Price-based task: expect bytes32, int64, int32, uint8
+      const [priceId, targetPrice, targetExpo, comparatorFlag] = coder.decode(
+        ["bytes32", "int64", "int32", "uint8"],
+        resolverData
+      );
+      decoded = {
+        priceId,
+        targetPrice: targetPrice.toString(),
+        targetExpo: Number(targetExpo),
+        comparator: comparatorFlag === 0 ? "gte" : "lte",
+      };
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `Failed to decode resolverData for task ${taskId}:`,
+      err.message
     );
-    decoded = {
-      priceId,
-      targetPrice: targetPrice.toString(),
-      targetExpo: Number(targetExpo),
-      comparator: comparatorFlag === 0 ? "gte" : "lte",
-    };
+    // Fallback: just store raw data
+    decoded = { raw: resolverData };
   }
+
   return {
     taskId: taskId.toString(),
     creator,
@@ -163,5 +215,3 @@ export async function evaluateShouldExecute(task) {
   );
   return result;
 }
-
-

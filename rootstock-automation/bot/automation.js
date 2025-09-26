@@ -6,13 +6,13 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
 const ABI = [
-  "function createTask(address _targetContract, bytes calldata _callData, uint256 _interval) external returns (uint256)",
-  "function markExecuted(uint256 _taskId) external",
+  "function createTask(address _targetContract, bytes calldata _callData, uint8 _resolverType, bytes calldata _resolverData) external returns (uint256)",
+  "function executeTask(uint256 _taskId) external returns (bool success, bytes memory returnData)",
   "function cancelTask(uint256 _taskId) external",
   "function getTaskCount() external view returns (uint256)",
-  "function getTask(uint256 _taskId) external view returns (address creator, address targetContract, bytes memory callData, uint256 interval, uint256 lastRun, bool active)",
-  "event TaskCreated(uint256 indexed taskId, address indexed creator, address targetContract)",
-  "event TaskExecuted(uint256 indexed taskId, bool success)",
+  "function getTask(uint256 _taskId) external view returns (address creator, address targetContract, bytes memory callData, uint8 resolverType, bytes memory resolverData, uint256 lastRun, bool active)",
+  "event TaskCreated(uint256 indexed taskId, address indexed creator, address indexed targetContract, uint8 resolverType, bytes resolverData)",
+  "event TaskExecuted(uint256 indexed taskId, address indexed executor, bool success, bytes returnData)",
   "event TaskCancelled(uint256 indexed taskId)",
 ];
 
