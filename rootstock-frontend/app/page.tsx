@@ -1,11 +1,9 @@
-import { HeroParallax } from "@/components/hero-parallax"
-import { WhyCards } from "@/components/why-cards"
+import { HeroParallax } from "@/components/hero-parallax";
 
 export default function Page() {
   return (
     <>
       <HeroParallax />
-      <WhyCards />
     </>
-  )
+  );
 }
