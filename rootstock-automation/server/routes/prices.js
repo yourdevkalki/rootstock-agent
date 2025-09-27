@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
   getBTCPrice,
-  getUSDPrice,
+  getUSDCPrice,
   getTokenPrices,
   PYTH_PRICE_FEEDS,
   getLatestPythPrice,
@@ -36,22 +36,22 @@ router.get("/btc", async (_req, res) => {
   }
 });
 
-// Get USD price
-router.get("/usd", async (_req, res) => {
+// Get USDC price
+router.get("/usdc", async (_req, res) => {
   try {
-    const price = await getUSDPrice();
+    const price = await getUSDCPrice();
     res.json({
-      symbol: "USD",
-      name: "US Dollar",
+      symbol: "USDC",
+      name: "USD Coin",
       ...price,
     });
   } catch (error) {
-    console.error("USD price error:", error);
+    console.error("USDC price error:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Get both xBTC and xUSD prices (our dummy tokens pegged to real prices)
+// Get both xBTC and xUSDC prices (our dummy tokens pegged to real prices)
 router.get("/tokens", async (_req, res) => {
   try {
     const prices = await getTokenPrices();
@@ -75,16 +75,16 @@ router.get("/token/:symbol", async (req, res) => {
         name: "Dummy Bitcoin",
         ...price,
       });
-    } else if (symbolUpper === "XUSD") {
-      const price = await getUSDPrice();
+    } else if (symbolUpper === "XUSDC") {
+      const price = await getUSDCPrice();
       res.json({
-        symbol: "xUSD",
-        name: "Dummy USD",
+        symbol: "xUSDC",
+        name: "Dummy USDC",
         ...price,
       });
     } else {
       res.status(404).json({
-        error: `Token ${symbol} not supported. Supported tokens: xBTC, xUSD`,
+        error: `Token ${symbol} not supported. Supported tokens: xBTC, xUSDC`,
       });
     }
   } catch (error) {
@@ -136,7 +136,7 @@ router.get("/history/:symbol", async (req, res) => {
       currentPrice:
         symbol.toUpperCase() === "XBTC"
           ? await getBTCPrice()
-          : await getUSDPrice(),
+          : await getUSDCPrice(),
     });
   } catch (error) {
     console.error("Historical price error:", error);

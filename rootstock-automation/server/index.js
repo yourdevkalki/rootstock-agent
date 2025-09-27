@@ -4,8 +4,12 @@ import cors from "cors";
 import morgan from "morgan";
 import tasksRouter from "./routes/tasks.js";
 import swapRouter from "./routes/swap.js";
+import swapPythRouter from "./routes/swap-pyth.js";
+import automationRouter from "./routes/automation.js";
 import dummyTokensRouter from "./routes/dummy-tokens.js";
 import pricesRouter from "./routes/prices.js";
+import tokensRouter from "./routes/tokens.js";
+import openaiRouter from "./routes/openai.js";
 import { startWorker } from "./worker.js";
 import { wireEventLogs } from "./events.js";
 import { eventsDisabled } from "./py.config.mjs";
@@ -21,8 +25,12 @@ app.get("/health", (_req, res) => {
 
 app.use("/tasks", tasksRouter);
 app.use("/swap", swapRouter);
-app.use("/api/dummy-tokens", dummyTokensRouter);
+app.use("/swap-pyth", swapPythRouter);
+app.use("/automation", automationRouter);
+app.use("/dummy-tokens", dummyTokensRouter);
 app.use("/prices", pricesRouter);
+app.use("/tokens", tokensRouter);
+app.use("/openai", openaiRouter);
 
 const PORT = process.env.PORT || 3000;
 

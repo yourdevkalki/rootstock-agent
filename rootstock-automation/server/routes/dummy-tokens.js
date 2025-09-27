@@ -20,7 +20,7 @@ router.get("/addresses", (_req, res) => {
     addresses: DUMMY_SWAP_ADDRESSES,
     description: {
       XBTC: "Dummy Bitcoin token address",
-      XUSD: "Dummy USD token address",
+      XUSDC: "Dummy USDC token address",
       DUMMY_SWAP: "Dummy swap contract address",
     },
   });
@@ -29,17 +29,17 @@ router.get("/addresses", (_req, res) => {
 // Update addresses (admin endpoint)
 router.post("/addresses", (req, res) => {
   try {
-    const { XBTC, XUSD, DUMMY_SWAP } = req.body;
+    const { XBTC, XUSDC, DUMMY_SWAP } = req.body;
 
-    if (!XBTC && !XUSD && !DUMMY_SWAP) {
+    if (!XBTC && !XUSDC && !DUMMY_SWAP) {
       return res.status(400).json({
-        error: "At least one address (XBTC, XUSD, or DUMMY_SWAP) is required",
+        error: "At least one address (XBTC, XUSDC, or DUMMY_SWAP) is required",
       });
     }
 
     const newAddresses = {};
     if (XBTC) newAddresses.XBTC = XBTC;
-    if (XUSD) newAddresses.XUSD = XUSD;
+    if (XUSDC) newAddresses.XUSDC = XUSDC;
     if (DUMMY_SWAP) newAddresses.DUMMY_SWAP = DUMMY_SWAP;
 
     updateAddresses(newAddresses);
@@ -100,10 +100,10 @@ router.post("/quote", async (req, res) => {
     }
 
     // Validate token pair
-    const validTokens = [DUMMY_SWAP_ADDRESSES.XBTC, DUMMY_SWAP_ADDRESSES.XUSD];
+    const validTokens = [DUMMY_SWAP_ADDRESSES.XBTC, DUMMY_SWAP_ADDRESSES.XUSDC];
     if (!validTokens.includes(tokenIn) || !validTokens.includes(tokenOut)) {
       return res.status(400).json({
-        error: "Invalid token pair. Only xBTC/xUSD swaps are supported",
+        error: "Invalid token pair. Only xBTC/xUSDC swaps are supported",
       });
     }
 
@@ -134,10 +134,10 @@ router.post("/swap", async (req, res) => {
     }
 
     // Validate token pair
-    const validTokens = [DUMMY_SWAP_ADDRESSES.XBTC, DUMMY_SWAP_ADDRESSES.XUSD];
+    const validTokens = [DUMMY_SWAP_ADDRESSES.XBTC, DUMMY_SWAP_ADDRESSES.XUSDC];
     if (!validTokens.includes(tokenIn) || !validTokens.includes(tokenOut)) {
       return res.status(400).json({
-        error: "Invalid token pair. Only xBTC/xUSD swaps are supported",
+        error: "Invalid token pair. Only xBTC/xUSDC swaps are supported",
       });
     }
 
@@ -175,15 +175,15 @@ router.get("/pool/info", async (req, res) => {
 // Add liquidity endpoint (admin)
 router.post("/liquidity/add", async (req, res) => {
   try {
-    const { xbtcAmount, xusdAmount } = req.body;
+    const { xbtcAmount, xusdcAmount } = req.body;
 
-    if (!xbtcAmount || !xusdAmount) {
+    if (!xbtcAmount || !xusdcAmount) {
       return res.status(400).json({
-        error: "xbtcAmount and xusdAmount are required",
+        error: "xbtcAmount and xusdcAmount are required",
       });
     }
 
-    const result = await addLiquidity(xbtcAmount, xusdAmount);
+    const result = await addLiquidity(xbtcAmount, xusdcAmount);
     res.json(result);
   } catch (error) {
     console.error("Add liquidity error:", error);
@@ -203,10 +203,10 @@ router.post("/mint", async (req, res) => {
     }
 
     // Validate token address
-    const validTokens = [DUMMY_SWAP_ADDRESSES.XBTC, DUMMY_SWAP_ADDRESSES.XUSD];
+    const validTokens = [DUMMY_SWAP_ADDRESSES.XBTC, DUMMY_SWAP_ADDRESSES.XUSDC];
     if (!validTokens.includes(token)) {
       return res.status(400).json({
-        error: "Invalid token address. Only xBTC and xUSD are supported",
+        error: "Invalid token address. Only xBTC and xUSDC are supported",
       });
     }
 
@@ -229,9 +229,9 @@ router.get("/tokens", (_req, res) => {
         decimals: 18,
       },
       {
-        address: DUMMY_SWAP_ADDRESSES.XUSD,
-        symbol: "xUSD",
-        name: "Dummy USD",
+        address: DUMMY_SWAP_ADDRESSES.XUSDC,
+        symbol: "xUSDC",
+        name: "Dummy USDC",
         decimals: 18,
       },
     ],

@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation"
 import useSWR from "swr"
-import { getTask } from "@/lib/tasks"
+import { getTask, transformTask, type Task } from "@/lib/tasks"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { StatusBadge } from "@/components/status-badge"
 import { ExecutionLogs } from "@/components/execution-logs"
@@ -12,20 +12,24 @@ const fetcher = (id: string) => getTask(id)
 export default function TaskDetailPage() {
   const params = useParams<{ id: string }>()
   const id = params.id
-  const { data: task } = useSWR(id ? ["task", id] : null, () => fetcher(id))
+  const { data: rawTask, isLoading } = useSWR(id, fetcher)
 
-  if (!task) {
+  // Transform the raw task data into the format the UI expects
+  const task = rawTask ? transformTask(rawTask) : null
+
+  if (isLoading || !task) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-10">
         <div className="rounded-xl border border-border/60 bg-card/70 p-6">Loading task...</div>
       </div>
     )
   }
+  console.log(task)
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-medium tracking-wider">Task {task.id.slice(0, 8)}</h1>
+        <h1 className="text-2xl font-medium tracking-wider">Task {task.id}</h1>
         <StatusBadge status={task.status} />
       </div>
 
