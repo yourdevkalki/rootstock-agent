@@ -10,7 +10,12 @@ import {
 } from "../services/tasks.js";
 import { getLatestPythPrice } from "../services/pyth.js";
 import { getAllowance } from "../services/erc20.js";
-import { getSpenderAddress, storeUserStrategy, getUserStrategies, createLimitOrderTask } from "../services/user.js";
+import {
+  getSpenderAddress,
+  storeUserStrategy,
+  getUserStrategies,
+  createLimitOrderTask,
+} from "../services/user.js";
 
 const router = Router();
 
@@ -20,25 +25,57 @@ router.get("/", async (_req, res) => {
 });
 
 router.post("/time", async (req, res) => {
-  const { targetContract, functionSignature, args, intervalSeconds } = req.body || {};
+  const { targetContract, functionSignature, args, intervalSeconds } =
+    req.body || {};
   if (!targetContract || !functionSignature || intervalSeconds == null) {
-    return res.status(400).json({ error: "targetContract, functionSignature, intervalSeconds required" });
+    return res
+      .status(400)
+      .json({
+        error: "targetContract, functionSignature, intervalSeconds required",
+      });
   }
   const callData = abiEncodeFunctionCalldata(functionSignature, args || []);
-  const taskId = await createTimeTask(targetContract, callData, BigInt(intervalSeconds));
-  res.json({ taskId });
+  const result = await createTimeTask(
+    targetContract,
+    callData,
+    BigInt(intervalSeconds)
+  );
+  res.json(result);
 });
 
 router.post("/price", async (req, res) => {
-  const { targetContract, functionSignature, args, priceId, comparator, targetPrice, targetExpo } = req.body || {};
-  if (!targetContract || !functionSignature || !priceId || !comparator || targetPrice == null || targetExpo == null) {
+  const {
+    targetContract,
+    functionSignature,
+    args,
+    priceId,
+    comparator,
+    targetPrice,
+    targetExpo,
+  } = req.body || {};
+  if (
+    !targetContract ||
+    !functionSignature ||
+    !priceId ||
+    !comparator ||
+    targetPrice == null ||
+    targetExpo == null
+  ) {
     return res.status(400).json({
-      error: "targetContract, functionSignature, priceId, comparator, targetPrice, targetExpo required",
+      error:
+        "targetContract, functionSignature, priceId, comparator, targetPrice, targetExpo required",
     });
   }
   const callData = abiEncodeFunctionCalldata(functionSignature, args || []);
-  const taskId = await createPriceTask(targetContract, callData, priceId, comparator, BigInt(targetPrice), Number(targetExpo));
-  res.json({ taskId });
+  const result = await createPriceTask(
+    targetContract,
+    callData,
+    priceId,
+    comparator,
+    BigInt(targetPrice),
+    Number(targetExpo)
+  );
+  res.json(result);
 });
 
 // Pricing endpoint via Pyth
@@ -56,7 +93,8 @@ router.get("/spender", async (_req, res) => {
 // Query current allowance of an owner for a token toward spender
 router.get("/allowance", async (req, res) => {
   const { token, owner, spender } = req.query;
-  if (!token || !owner) return res.status(400).json({ error: "token and owner required" });
+  if (!token || !owner)
+    return res.status(400).json({ error: "token and owner required" });
   const useSpender = spender || getSpenderAddress();
   const info = await getAllowance(token, owner, useSpender);
   res.json({ spender: useSpender, ...info });
@@ -99,5 +137,3 @@ router.get("/:taskId", async (req, res) => {
 });
 
 export default router;
-
-

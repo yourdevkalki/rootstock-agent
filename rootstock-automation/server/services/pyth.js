@@ -1,23 +1,25 @@
-import { PriceServiceConnection } from "@pythnetwork/price-service-client";
+import { HermesClient } from "@pythnetwork/hermes-client";
 import { isMock } from "../py.config.mjs";
 
 const HERMES_URL = process.env.PYTH_HERMES_URL || "https://hermes.pyth.network";
 
-const connection = new PriceServiceConnection(HERMES_URL, { timeout: 10_000 });
+const connection = new HermesClient(HERMES_URL, {});
 
 export async function getLatestPythPrice(priceId) {
   if (isMock()) return { price: -11109000000, expo: -8 };
 
   try {
-    // Use the correct method from Pyth client
-    const priceFeeds = await connection.getLatestPriceFeeds([priceId]);
-    if (!priceFeeds || !priceFeeds.length) {
-      throw new Error("No price feeds from Pyth");
+    // Use the correct method from Pyth HermesClient with parsed option
+    const priceUpdate = await connection.getLatestPriceUpdates([priceId], {
+      parsed: true,
+    });
+    if (!priceUpdate || !priceUpdate.parsed || !priceUpdate.parsed.length) {
+      throw new Error("No price updates from Pyth");
     }
 
-    const feed = priceFeeds[0];
-    const price = Number(feed.price.price);
-    const expo = Number(feed.price.expo);
+    const parsedData = priceUpdate.parsed[0];
+    const price = Number(parsedData.price.price);
+    const expo = Number(parsedData.price.expo);
     return { price, expo };
   } catch (error) {
     console.error("Pyth price fetch error:", error.message);
@@ -56,7 +58,7 @@ export function comparePrice(
 // Pyth price feed IDs for major cryptocurrencies
 export const PYTH_PRICE_FEEDS = {
   // Bitcoin price feed ID
-  BTC_USD: "0xe62df6c8b4c85fe1b67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
+  BTC_USD: "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
   // Ethereum price feed ID (for reference)
   ETH_USD: "0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
   // USD Coin price feed ID

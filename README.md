@@ -132,6 +132,39 @@ POST /tasks/:id/execute  # Execute task manually
 POST /tasks/:id/cancel   # Cancel task
 ```
 
+### 🤖 Natural Language Task Creation
+
+```http
+POST /natural-language/create-task    # Create task from natural language
+POST /natural-language/parse          # Parse instruction (preview only)
+GET  /natural-language/task/:taskId   # Get natural language task details
+GET  /natural-language/tasks          # List all natural language tasks
+```
+
+#### Example Usage
+
+```javascript
+// Create a task from natural language
+POST /natural-language/create-task
+{
+  "instruction": "Remove my ETH from Aave lending if the interest rate drops below 2.5%",
+  "userAddress": "0x742d35Cc6634C0532925a3b8D7389C4f8b6b0e82"
+}
+
+// Response
+{
+  "success": true,
+  "taskId": "123",
+  "transactionHash": "0x123",
+  "parsedTask": {
+    "taskType": "price",
+    "description": "Monitor Aave lending rate and withdraw ETH when rate drops below 2.5%",
+    "confidence": 85
+  },
+  "message": "Task created successfully!"
+}
+```
+
 ## 🚦 Quick Start
 
 ### 1. Installation

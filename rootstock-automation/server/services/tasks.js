@@ -35,7 +35,7 @@ export async function createTimeTask(
   callData,
   intervalSeconds
 ) {
-  if (isMock()) return "1";
+  if (isMock()) return { taskId: "1", transactionHash: "0x1" };
   const resolverData = coder.encode(["uint256"], [intervalSeconds]);
   const tx = await contract.createTask(
     targetContract,
@@ -53,7 +53,10 @@ export async function createTimeTask(
       }
     })
     .find((e) => e && e.name === "TaskCreated");
-  return event?.args?.taskId?.toString() ?? null;
+  return {
+    taskId: event?.args?.taskId?.toString() ?? null,
+    transactionHash: receipt.hash,
+  };
 }
 
 export async function createPriceTask(
@@ -64,7 +67,7 @@ export async function createPriceTask(
   targetPrice,
   targetExpo
 ) {
-  if (isMock()) return "2";
+  if (isMock()) return { taskId: "2", transactionHash: "0x2" };
   const comparatorFlag = comparator === "gte" ? 0 : 1; // 0: >=, 1: <=
   const resolverData = coder.encode(
     ["bytes32", "int64", "int32", "uint8"],
@@ -86,7 +89,10 @@ export async function createPriceTask(
       }
     })
     .find((e) => e && e.name === "TaskCreated");
-  return event?.args?.taskId?.toString() ?? null;
+  return {
+    taskId: event?.args?.taskId?.toString() ?? null,
+    transactionHash: receipt.hash,
+  };
 }
 
 export async function getAllTasks() {
