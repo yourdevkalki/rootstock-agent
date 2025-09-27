@@ -21,7 +21,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/tasks", tasksRouter);
 app.use("/swap", swapRouter);
-app.use("/dummy-tokens", dummyTokensRouter);
+app.use("/api/dummy-tokens", dummyTokensRouter);
 app.use("/prices", pricesRouter);
 
 const PORT = process.env.PORT || 3000;
