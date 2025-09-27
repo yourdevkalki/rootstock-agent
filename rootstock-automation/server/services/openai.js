@@ -53,6 +53,16 @@ function parseOpenAIJSON(text) {
   // Remove any additional whitespace
   cleanedText = cleanedText.trim();
 
+  // Remove JavaScript-style comments that might interfere with JSON parsing
+  cleanedText = cleanedText.replace(/\/\/.*$/gm, ""); // Remove line comments
+  cleanedText = cleanedText.replace(/\/\*[\s\S]*?\*\//g, ""); // Remove block comments
+
+  // Clean up any trailing commas before closing braces/brackets
+  cleanedText = cleanedText.replace(/,(\s*[}\]])/g, "$1");
+
+  // Remove any remaining whitespace
+  cleanedText = cleanedText.trim();
+
   // Try to parse the cleaned JSON
   return JSON.parse(cleanedText);
 }
@@ -516,6 +526,93 @@ Format as JSON array:
     return parseOpenAIJSON(signalsText);
   } catch (error) {
     console.error("OpenAI trading signals error:", error);
+    throw error;
+  }
+}
+
+// Parse natural language instructions into task parameters
+export async function parseNaturalLanguageTask(instruction) {
+  if (!isOpenAIConfigured()) {
+    throw new Error("OpenAI API key not configured");
+  }
+
+  // Get current price data for context
+  const priceData = await getTokenPrices();
+
+  const prompt = `
+You are a DeFi automation expert that converts natural language instructions into blockchain task parameters.
+
+Available protocols and contracts:
+- Dummy Swap Contract: "0x79D45320480ED0a4C7e2885b14aBBfdE394Fb353"
+- Task Registry: Available for automation
+- Supported tokens: 
+  - XBTC: "0x18A1d7F323a90DDE8e5Efc42971cF06Ad5B759b8" (${priceData.xBTC.formatted})
+  - XUSDC: "0xB39E2eeB5063881D452616dff1BcE19d79C3375D" (${priceData.xUSDC.formatted})
+
+Available Pyth price feeds:
+- BTC/USD: "0xe62df6c8b4c85fe1b67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43"
+- USDC/USD: "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a"
+
+User instruction: "${instruction}"
+
+Parse this instruction and generate the required task parameters. Consider:
+1. What contract function needs to be called?
+2. What are the function parameters?
+3. Is this a time-based or price-based trigger?
+4. What are the trigger conditions?
+
+Format response as valid JSON without any comments:
+{
+  "taskType": "price|time",
+  "targetContract": "0x...",
+  "functionSignature": "functionName(type1,type2,...)",
+  "args": ["arg1", "arg2"],
+  "resolverData": {
+    "priceId": "0x...",
+    "comparator": "gte|lte",
+    "targetPrice": "price_in_8_decimals",
+    "targetExpo": -8,
+    "intervalSeconds": 3600
+  },
+  "description": "Human readable description of what this task will do",
+  "confidence": 85,
+  "warnings": ["Any potential issues or clarifications needed"]
+}
+
+Examples:
+- "Swap 1 BTC to USDC when BTC price reaches $120,000" → price-based task with Dummy Swap
+- "Execute a swap every hour" → time-based task with simple function
+- "Sell tokens if BTC drops below $100,000" → price-based task
+
+IMPORTANT: 
+- Use ONLY the provided contract addresses above
+- For simple swaps, use function signature "executeSwap()" with empty args array
+- For complex functions, use minimal valid Ethereum addresses (40 hex chars)
+- Avoid placeholder text in addresses - use actual hex addresses
+`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a DeFi automation specialist that converts natural language into precise blockchain task parameters. CRITICAL: Always respond with valid JSON only, no comments, no extra text, no markdown. Be specific about contract interactions.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 1500,
+    });
+
+    const taskText = response.choices[0].message.content.trim();
+    return parseOpenAIJSON(taskText);
+  } catch (error) {
+    console.error("OpenAI natural language task parsing error:", error);
     throw error;
   }
 }
