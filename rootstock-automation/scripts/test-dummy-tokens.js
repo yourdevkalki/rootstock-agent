@@ -72,8 +72,8 @@ async function testDummyTokens() {
       tokenIn: mockAddresses.XBTC,
       tokenOut: mockAddresses.XUSDC,
       amountIn: ethers.parseEther("1").toString(),
-      amountOut: ethers.parseEther("65000").toString(),
-      rate: "65000",
+      amountOut: ethers.parseEther("110000").toString(),
+      rate: "110000",
     };
 
     console.log("Mock Swap Quote:");
@@ -86,9 +86,9 @@ async function testDummyTokens() {
 
     const mockPrices = {
       BTC: {
-        price: 6500000000000, // $65,000 in 8 decimal places
+        price: 11000000000000, // ~$110,000 in 8 decimal places
         expo: -8,
-        formatted: 65000,
+        formatted: 110000,
       },
       USD: {
         price: 100000000, // $1.00 in 8 decimal places
@@ -106,7 +106,7 @@ async function testDummyTokens() {
 
     const reserves = {
       xbtc: ethers.parseEther("100"), // 100 xBTC
-      xusdc: ethers.parseEther("6500000"), // 6.5M xUSDC
+      xusdc: ethers.parseEther("11000000"), // 11M xUSDC
     };
 
     const k = reserves.xbtc * reserves.xusdc;
@@ -126,7 +126,7 @@ async function testDummyTokens() {
     console.log("After 1 xBTC swap:");
     console.log(`  Amount out: ${ethers.formatEther(amountOut)} xUSDC`);
     console.log(
-      `  Price impact: ${((Number(amountOut) / 65000 - 1) * 100).toFixed(2)}%`
+      `  Price impact: ${((Number(amountOut) / 110000 - 1) * 100).toFixed(2)}%`
     );
 
     // Test 8: Environment validation

@@ -35,7 +35,7 @@ async function main() {
 
   // Add initial liquidity to the swap contract
   const xbtcLiquidity = ethers.parseEther("10"); // 10 xBTC
-  const xusdcLiquidity = ethers.parseEther("650000"); // 650,000 xUSDC (roughly 65k USD per BTC)
+  const xusdcLiquidity = ethers.parseEther("1100000"); // 1,100,000 xUSDC (roughly 110k USD per BTC)
 
   console.log("\nAdding initial liquidity...");
 

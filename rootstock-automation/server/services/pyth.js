@@ -23,7 +23,7 @@ export async function getLatestPythPrice(priceId) {
     console.error("Pyth price fetch error:", error.message);
     // Fallback to mock data if Pyth fails
     console.log("Using mock price data as fallback");
-    return { price: 6500000000000, expo: -8 }; // $65,000 BTC price
+    return { price: 11000000000000, expo: -8 }; // ~$110,000 BTC price (updated for current market)
   }
 }
 
@@ -68,9 +68,9 @@ export const PYTH_PRICE_FEEDS = {
 export async function getBTCPrice() {
   if (isMock()) {
     return {
-      price: 6500000000000, // $65,000 in 8 decimal places
+      price: 11000000000000, // ~$110,000 in 8 decimal places (updated for current market)
       expo: -8,
-      formatted: 65000,
+      formatted: 110000,
     };
   }
 

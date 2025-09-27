@@ -137,8 +137,8 @@ export async function getTokenAllowance(tokenAddress, owner, spender) {
 // Get swap quote
 export async function getSwapQuote(tokenIn, tokenOut, amountIn) {
   if (isMock()) {
-    // Mock quote calculation (roughly 1 BTC = 65000 USD)
-    const mockRate = tokenIn.includes("xBTC") ? 65000 : 1 / 65000;
+    // Mock quote calculation (roughly 1 BTC = 110000 USD)
+    const mockRate = tokenIn.includes("xBTC") ? 110000 : 1 / 110000;
     const amountOut = (
       parseFloat(ethers.formatEther(amountIn)) * mockRate
     ).toString();
@@ -285,9 +285,9 @@ export async function getSwapInfo() {
   if (isMock()) {
     return {
       xbtcReserve: ethers.parseEther("100").toString(),
-      xusdcReserve: ethers.parseEther("6500000").toString(),
-      price: ethers.parseEther("65000").toString(),
-      priceFormatted: "65000.0",
+      xusdcReserve: ethers.parseEther("11000000").toString(),
+      price: ethers.parseEther("110000").toString(),
+      priceFormatted: "110000.0",
     };
   }
 
