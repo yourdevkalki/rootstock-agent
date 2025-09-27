@@ -1,60 +1,41 @@
 "use client"
 
-import useSWR from "swr"
-import { getTasks, cancelTask, type Task } from "@/lib/tasks"
+import { type Task, useTasks } from "@/lib/tasks"
 import { Button } from "@/components/ui/button"
 import { Table, TableHead, TableHeader, TableRow, TableBody, TableCell } from "@/components/ui/table"
 import { StatusBadge } from "./status-badge"
 import Link from "next/link"
 import { toast } from "sonner"
-import { ethers } from "ethers"
-
-// Helper to transform the raw backend task into the frontend format
-function transformTask(task: any, index: number): Task {
-  const { resolverType, resolverData, active } = task
-  const id = index.toString()
-  let type: "time" | "price" = "time"
-  let condition: any = {}
-
-  if (resolverType === 0) { // Time-based
-    type = "time"
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(["uint256"], resolverData)
-    condition.intervalHours = Number(decoded[0]) / 3600
-  } else { // Price-based
-    type = "price"
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(["bytes32", "uint8", "uint64", "int8"], resolverData)
-    condition.token = decoded[0] // This is the priceId
-    condition.direction = decoded[1] === 1 ? "above" : "below"
-    condition.threshold = Number(decoded[2]) / 100 // Assuming 2 decimal places
-  }
-
-  return {
-    ...task,
-    id,
-    type,
-    condition,
-    status: active ? "active" : "cancelled",
-    // These are placeholder values as they are not available from the backend yet
-    action: "swap",
-    funds: { amount: 0, token: "N/A" },
-    createdAt: 0,
-    history: [],
-  }
-}
-
-const fetcher = async () => {
-  const tasks = await getTasks()
-  return tasks.map(transformTask)
-}
 
 export function TaskTable() {
-  const { data, mutate } = useSWR("tasks", fetcher, { revalidateOnFocus: false })
-  const tasks = data ?? []
+  const { tasks, isLoading, error, setCancelled } = useTasks()
+
+  console.log("TaskTable render:", { tasks, isLoading, error });
 
   async function onCancel(id: string) {
-    await cancelTask(id)
-    toast("Task cancelled")
-    mutate()
+    try {
+      await setCancelled(id)
+      toast("Task cancelled")
+    } catch (error) {
+      console.error("Cancel error:", error);
+      toast("Failed to cancel task")
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-border/60 bg-card/70 p-6 text-center text-sm text-foreground/80">
+        Loading tasks...
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-border/60 bg-card/70 p-6 text-center text-sm text-red-500">
+        Error loading tasks: {error.message}
+      </div>
+    )
   }
 
   if (!tasks.length) {

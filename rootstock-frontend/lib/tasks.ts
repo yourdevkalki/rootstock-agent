@@ -56,8 +56,50 @@ async function apiFetch(path: string, options: RequestInit = {}) {
   return res.json()
 }
 
+// Helper to transform the raw backend task into the frontend format
+export function transformTask(task: any): Task {
+  const { resolver, active, taskId } = task;
+  const id = taskId.toString();
+  let type: TaskType = "time";
+  let condition: any = {};
+
+  // Handle the resolver object structure from your backend
+  if (resolver.type === "Time") {
+    type = "time";
+    condition.intervalHours = Number(resolver.interval) / 3600;
+  } else if (resolver.type === "Price") {
+    type = "price";
+    // You'll need to adjust this based on your actual price resolver structure
+    condition.token = resolver.priceId || "UNKNOWN";
+    condition.direction = resolver.comparator === 1 ? "above" : "below";
+    condition.threshold = Number(resolver.targetPrice || 0) / (10 ** Math.abs(resolver.targetExpo || 2));
+  }
+
+  return {
+    ...task,
+    id,
+    type,
+    condition,
+    status: active ? "active" : "cancelled",
+    // These are placeholder values as they are not available from the backend yet
+    action: "swap" as TaskAction,
+    funds: { amount: 0, token: "N/A" },
+    createdAt: Date.now(), // Placeholder
+    history: [],
+    // Add the backend fields
+    resolverType: resolver.type === "Time" ? 0 : 1,
+    resolverData: "", // You might need to reconstruct this
+    lastRun: Number(task.lastRun || 0),
+  };
+}
+
 export async function getTasks(): Promise<Task[]> {
-  return apiFetch("/tasks")
+  const rawTasks = await apiFetch("/tasks");
+  console.log("Raw tasks from API:", rawTasks);
+  if (!Array.isArray(rawTasks)) return [];
+  const transformedTasks = rawTasks.map(transformTask);
+  console.log("Transformed tasks:", transformedTasks);
+  return transformedTasks;
 }
 
 export async function getTask(id: string): Promise<Task | undefined> {
@@ -68,36 +110,32 @@ export async function getTask(id: string): Promise<Task | undefined> {
 export async function createTask(input: any): Promise<{ taskId: string }> {
   const { type, condition, swap } = input
 
-  const UNISWAP_ROUTER_ADDRESS = process.env.NEXT_PUBLIC_UNISWAP_ROUTER_ADDRESS || "0xD34443CeC1492B9ceD1500cC899b108f5D7C16a4";
-  const SWAP_FUNCTION_SIGNATURE = "exactInputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))";
+  const DUMMY_SWAP_ADDRESS = process.env.NEXT_PUBLIC_DUMMY_SWAP_ADDRESS || "";
+  const XBTC_ADDRESS = process.env.NEXT_PUBLIC_XBTC_ADDRESS || "";
+  const XUSD_ADDRESS = process.env.NEXT_PUBLIC_XUSD_ADDRESS || "";
 
-  const targetContract = ethers.getAddress(UNISWAP_ROUTER_ADDRESS);
+  if (!DUMMY_SWAP_ADDRESS || !XBTC_ADDRESS || !XUSD_ADDRESS) {
+    throw new Error("Required contract addresses are not configured in environment variables.");
+  }
 
-  // Encode the swap parameters
-  const swapParams = {
-    tokenIn: swap.tokenIn,
-    tokenOut: swap.tokenOut,
-    fee: 3000, // Standard fee tier
-    recipient: targetContract, // The router will send the tokens to itself to hold
-    deadline: Math.floor(Date.now() / 1000) + 60 * 20, // 20 minutes from now
-    amountIn: ethers.parseUnits(swap.amountIn, 18), // Assuming 18 decimals
-    amountOutMinimum: 0,
-    sqrtPriceLimitX96: 0,
-  };
+  const targetContract = ethers.getAddress(DUMMY_SWAP_ADDRESS);
 
-  const abiCoder = new ethers.AbiCoder();
-  const encodedArgs = abiCoder.encode(
-    ["tuple(address,address,uint24,address,uint256,uint256,uint256,uint160)"],
-    [Object.values(swapParams)]
-  );
+  // Determine the correct function signature based on the input token
+  const functionSignature = swap.tokenIn.toLowerCase() === XBTC_ADDRESS.toLowerCase()
+    ? "swapXBTCForXUSD(uint256)"
+    : "swapXUSDForXBTC(uint256)";
+
+  // The DummySwap contract expects only the amount as an argument
+  const amountIn = ethers.parseUnits(swap.amountIn, 18); // Assuming 18 decimals
+  const args = [amountIn.toString()];
 
   if (type === "time") {
     return apiFetch("/tasks/time", {
       method: "POST",
       body: JSON.stringify({
         targetContract: targetContract,
-        functionSignature: SWAP_FUNCTION_SIGNATURE,
-        args: [encodedArgs],
+        functionSignature: functionSignature,
+        args: args,
         intervalSeconds: condition.intervalHours * 3600,
       }),
     })
@@ -112,8 +150,8 @@ export async function createTask(input: any): Promise<{ taskId: string }> {
       method: "POST",
       body: JSON.stringify({
         targetContract: targetContract,
-        functionSignature: SWAP_FUNCTION_SIGNATURE,
-        args: [encodedArgs],
+        functionSignature: functionSignature,
+        args: args,
         priceId: priceIds[condition.token] || condition.token, // Use mapping or pass through
         comparator: condition.direction === "above" ? 1 : 2, // 1 for Gt, 2 for Lt
         targetPrice: Math.floor(condition.threshold * 100), // Assuming 2 decimal places
@@ -130,19 +168,32 @@ export async function cancelTask(id: string): Promise<{ ok: boolean }> {
 }
 
 export function useTasks(owner?: string) {
-  // Note: owner currently unused because the backend doesn't filter by owner yet.
-  const fetcher = async () => getTasks()
+  const fetcher = async () => {
+    const tasks = await getTasks();
+    console.log("useTasks fetcher result:", tasks);
+    return tasks;
+  }
 
-  const { data, isLoading, mutate } = useSWR(["tasks", owner], fetcher)
+  const { data, isLoading, mutate, error } = useSWR(["tasks", owner], fetcher, {
+    revalidateOnFocus: false,
+  });
+
+  console.log("useTasks hook state:", { data, isLoading, error });
 
   const setCancelled = async (id: string) => {
-    await cancelTask(id)
-    await mutate() // Re-fetch the tasks list
+    try {
+      await cancelTask(id);
+      await mutate(); // Re-fetch tasks
+    } catch (error) {
+      console.error("Error cancelling task:", error);
+      throw error;
+    }
   }
 
   return {
     tasks: data ?? [],
     isLoading: !!isLoading,
+    error,
     refresh: () => mutate(),
     setCancelled,
   }

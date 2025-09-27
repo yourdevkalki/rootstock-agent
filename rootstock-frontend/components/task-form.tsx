@@ -61,6 +61,7 @@ export function TaskForm() {
   }, [type, intervalHours, priceToken, direction, threshold, swapTokenIn, swapTokenOut, swapAmountIn])
 
   async function onSubmit(e: React.FormEvent) {
+    console.log("Submit clicked")
     e.preventDefault()
     setIsSubmitting(true)
     try {
@@ -164,7 +165,9 @@ export function TaskForm() {
           <Select value={swapTokenOut} onValueChange={setSwapTokenOut}>
             <SelectTrigger><SelectValue placeholder="Select token" /></SelectTrigger>
             <SelectContent>
-              {tokens.map(token => <SelectItem key={token.address} value={token.address}>{token.symbol}</SelectItem>)}
+              {tokens
+                .filter(token => token.address.toLowerCase() !== swapTokenIn.toLowerCase())
+                .map(token => <SelectItem key={token.address} value={token.address}>{token.symbol}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

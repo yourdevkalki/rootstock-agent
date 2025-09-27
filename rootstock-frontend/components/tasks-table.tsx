@@ -1,43 +1,11 @@
 "use client"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { type Task, useTasks } from "@/lib/tasks"
+import { type Task, useTasks,  transformTask } from "@/lib/tasks"
 import { useWallet } from "@/lib/wallet"
 import { StatusBadge } from "./status-badge"
 import { ethers } from "ethers"
-
-// Helper to transform the raw backend task into the frontend format
-function transformTask(task: any, index: number): Task {
-  const { resolverType, resolverData, active } = task
-  const id = index.toString()
-  let type: "time" | "price" = "time"
-  let condition: any = {}
-
-  if (resolverType === 0) { // Time-based
-    type = "time"
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(["uint256"], resolverData)
-    condition.intervalHours = Number(decoded[0]) / 3600
-  } else { // Price-based
-    type = "price"
-    const decoded = ethers.AbiCoder.defaultAbiCoder().decode(["bytes32", "uint8", "uint64", "int8"], resolverData)
-    condition.token = decoded[0] // This is the priceId
-    condition.direction = decoded[1] === 1 ? "above" : "below"
-    condition.threshold = Number(decoded[2]) / 100 // Assuming 2 decimal places
-  }
-
-  return {
-    ...task,
-    id,
-    type,
-    condition,
-    status: active ? "active" : "cancelled",
-    // These are placeholder values as they are not available from the backend yet
-    action: "swap",
-    funds: { amount: 0, token: "N/A" },
-    createdAt: 0,
-    history: [],
-  }
-}
+import { useEffect, useState } from "react"
 
 function fmtFunds(f: Task["funds"]) {
   return `${f.amount} ${f.token}`
@@ -46,8 +14,7 @@ function fmtFunds(f: Task["funds"]) {
 export function TasksTable() {
   const { address } = useWallet()
   // We need to transform the data after fetching
-  const { tasks: rawTasks, isLoading, setCancelled } = useTasks(address || undefined)
-  const tasks = rawTasks.map(transformTask)
+  const { tasks, isLoading, setCancelled } = useTasks(address || undefined)
 
   if (!address) return <div className="text-sm text-foreground/70">Connect your wallet to see your tasks.</div>
   if (isLoading) return <div className="text-sm text-foreground/70">Loading tasks…</div>
