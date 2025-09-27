@@ -12,175 +12,27 @@ function formatAddress(addr?: string) {
 }
 
 // Simple toast replacement since sonner might not be available
-function showToast(message: string, description?: string) {
-  if (typeof window !== 'undefined') {
-    console.log(description ? `${message}: ${description}` : message)
-    // You can replace this with your actual toast implementation
-  }
-}
+
+import { useWallet } from "@/lib/wallet"
 
 export function WalletConnect() {
-  const [address, setAddress] = useState<string | null>(null)
-  const [chainId, setChainId] = useState<string | null>(null)
-  const [isConnecting, setIsConnecting] = useState(false)
-  const [isOpen, setIsOpen] = useState(false)
-  
-  // Rootstock Testnet chain ID is 31 (0x1f in hex)
+  const { address, chainId, isConnecting, connect, disconnect, switchToRootstock } = useWallet();
+  const [isOpen, setIsOpen] = useState(false);
+
   const isOnRootstockTestnet = useMemo(() => {
-    if (!chainId) return false
-    return chainId === "0x1f" || parseInt(chainId) === 31
-  }, [chainId])
+    if (!chainId) return false;
+    return chainId === "0x1f" || parseInt(chainId) === 31;
+  }, [chainId]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
+  const handleConnect = async () => {
+    await connect();
+    setIsOpen(false);
+  };
 
-    const eth = (window as any).ethereum
-    if (!eth) return
-
-    // Get initial chain ID
-    eth
-      .request({ method: "eth_chainId" })
-      .then((cid: string) => {
-        console.log("Initial chain ID:", cid)
-        setChainId(cid)
-      })
-      .catch((error: any) => {
-        console.log("Failed to get chain ID:", error)
-      })
-
-    // Get initial accounts
-    eth
-      .request({ method: "eth_accounts" })
-      .then((accs: string[]) => {
-        console.log("Initial accounts:", accs)
-        setAddress(accs[0] || null)
-      })
-      .catch((error: any) => {
-        console.log("Failed to get accounts:", error)
-      })
-
-    // Event handlers
-    const handleChain = (cid: string) => {
-      console.log("Chain changed to:", cid)
-      setChainId(cid)
-    }
-    
-    const handleAccounts = (accs: string[]) => {
-      console.log("Accounts changed to:", accs)
-      setAddress(accs[0] || null)
-    }
-
-    // Add event listeners
-    if (eth.on) {
-      eth.on("chainChanged", handleChain)
-      eth.on("accountsChanged", handleAccounts)
-    }
-
-    return () => {
-      // Clean up event listeners
-      if (eth.removeListener) {
-        eth.removeListener("chainChanged", handleChain)
-        eth.removeListener("accountsChanged", handleAccounts)
-      }
-    }
-  }, [])
-
-  const disconnect = () => {
-    setAddress(null)
-    setChainId(null)
-    showToast("Wallet disconnected")
-    setIsOpen(false)
-  }
-
-  const switchToRootstock = async () => {
-    const eth = (window as any).ethereum
-    if (!eth) {
-      showToast("No wallet found", "Please install MetaMask")
-      return
-    }
-
-    try {
-      // Try to switch to Rootstock Testnet
-      await eth.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0x1f' }], // 31 in hex
-      })
-      showToast("Switched to Rootstock Testnet")
-    } catch (switchError: any) {
-      // If the chain is not added, add it
-      if (switchError.code === 4902) {
-        try {
-          await eth.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: '0x1f',
-              chainName: 'Rootstock Testnet',
-              nativeCurrency: {
-                name: 'Rootstock Bitcoin',
-                symbol: 'tRBTC',
-                decimals: 18,
-              },
-              rpcUrls: ['https://public-node.testnet.rsk.co'],
-              blockExplorerUrls: ['https://explorer.testnet.rsk.co'],
-            }],
-          })
-          showToast("Added Rootstock Testnet")
-        } catch (addError) {
-          console.error("Failed to add chain:", addError)
-          showToast("Failed to add Rootstock Testnet")
-        }
-      } else {
-        console.error("Failed to switch chain:", switchError)
-        showToast("Failed to switch to Rootstock Testnet")
-      }
-    }
-  }
-
-  const connect = async () => {
-    if (typeof window === 'undefined') return
-
-    const eth = (window as any).ethereum
-    
-    if (!eth) {
-      // Fallback demo wallet for testing
-      const demo = "0x" + Array.from(crypto.getRandomValues(new Uint8Array(20)))
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join("")
-      
-      setAddress(demo)
-      setChainId("0x1f") // Set to Rootstock Testnet for demo
-      showToast("Connected demo wallet", "Install MetaMask to connect a real wallet")
-      return
-    }
-
-    setIsConnecting(true)
-    
-    try {
-      // Request account access
-      const accounts = await eth.request({ method: "eth_requestAccounts" })
-      
-      if (accounts.length > 0) {
-        setAddress(accounts[0])
-        
-        // Get current chain ID after connection
-        const currentChainId = await eth.request({ method: "eth_chainId" })
-        setChainId(currentChainId)
-        
-        showToast("Wallet connected successfully!")
-        setIsOpen(false)
-      }
-    } catch (error: any) {
-      console.error("Connection error:", error)
-      
-      if (error.code === 4001) {
-        showToast("Connection canceled", "User rejected the connection request")
-      } else {
-        showToast("Connection failed", "Please try again")
-      }
-    } finally {
-      setIsConnecting(false)
-    }
-  }
+  const handleDisconnect = () => {
+    disconnect();
+    setIsOpen(false);
+  };
 
   const chainLabel = useMemo(() => {
     if (!chainId) return "Unknown Network"
@@ -262,7 +114,7 @@ export function WalletConnect() {
               {address ? (
                 <>
                   <Button 
-                    onClick={disconnect}
+                    onClick={handleDisconnect}
                     variant="outline"
                     size="sm"
                     className="border-border/60 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
@@ -271,7 +123,7 @@ export function WalletConnect() {
                     Disconnect
                   </Button>
                   <Button 
-                    onClick={connect} 
+                    onClick={handleConnect} 
                     disabled={isConnecting}
                     className="btn-gradient text-primary-foreground"
                   >
@@ -280,7 +132,7 @@ export function WalletConnect() {
                 </>
               ) : (
                 <Button 
-                  onClick={connect} 
+                  onClick={handleConnect} 
                   disabled={isConnecting}
                   className="btn-gradient text-primary-foreground"
                 >

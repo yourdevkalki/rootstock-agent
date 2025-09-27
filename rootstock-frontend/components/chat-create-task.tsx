@@ -5,27 +5,12 @@ import type React from "react"
 import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowUp, MessageCircle, Sparkles } from "lucide-react"
+import { ArrowUp, MessageCircle, Sparkles, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { createTask, type TaskType } from "@/lib/tasks"
+import { useWallet } from "@/lib/wallet"
+import { appendToChatHistory } from "./chat-history"
 
-type Direction = "above" | "below"
-
-type ParsedPlan =
-  | {
-      type: "time"
-      intervalHours: number
-      swap: { tokenIn: string; tokenOut: string; amountIn: string }
-      summary: string
-    }
-  | {
-      type: "price"
-      token: string
-      direction: Direction
-      threshold: number
-      swap: { tokenIn: string; tokenOut: string; amountIn: string }
-      summary: string
-    }
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
 
 const SUGGESTIONS = [
   "Every day at 9am swap 50 USDC to ETH",
@@ -33,78 +18,18 @@ const SUGGESTIONS = [
   "DCA 10 USDC to RBTC every 6 hours",
 ]
 
-const TOKEN_LIST = ["USDC", "ETH", "BTC", "RBTC"]
-
-function normalizeToken(symbol: string) {
-  const match = TOKEN_LIST.find((t) => t.toLowerCase() === symbol.toLowerCase())
-  return match ?? symbol.toUpperCase()
-}
-
-// Very light “NLP” parser stub to preserve functionality until LangChain is integrated
-function planFromText(inputRaw: string): ParsedPlan | null {
-  const input = inputRaw.trim()
-
-  // amount + pair: "swap 100 USDC to ETH" or "buy ETH with 100 USDC"
-  const swapPairRe = /(swap|buy)\s+(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s+(?:to|for|into|with)\s*([a-zA-Z]+)/i
-  const pair = input.match(swapPairRe)
-  const amountIn = pair ? pair[2] : "1"
-  const tokenIn = pair ? normalizeToken(pair[3]) : "USDC"
-  const tokenOut = pair ? normalizeToken(pair[4]) : "ETH"
-
-  // TIME-BASED: "every 6 hours" | "every day" | "daily" | "hourly" | "every week"
-  const everyRe = /every\s+(\d+)?\s*(hour|hours|day|days|week|weeks)/i
-  const dailyRe = /\b(daily|every\s*day)\b/i
-  const hourlyRe = /\b(hourly)\b/i
-  const weeklyRe = /\b(weekly|every\s*week)\b/i
-  const timeMatch = input.match(everyRe)
-  let intervalHours: number | null = null
-  if (timeMatch) {
-    const num = timeMatch[1] ? Number.parseInt(timeMatch[1], 10) : 1
-    const unit = timeMatch[2].toLowerCase()
-    if (unit.startsWith("hour")) intervalHours = Math.max(1, num)
-    if (unit.startsWith("day")) intervalHours = Math.max(1, num * 24)
-    if (unit.startsWith("week")) intervalHours = Math.max(1, num * 24 * 7)
-  } else if (dailyRe.test(input)) {
-    intervalHours = 24
-  } else if (hourlyRe.test(input)) {
-    intervalHours = 1
-  } else if (weeklyRe.test(input)) {
-    intervalHours = 24 * 7
-  }
-
-  // PRICE-BASED: "when BTC rises above $70000" | "if ETH drops below 2500" | "BTC > 70000"
-  const priceRe1 = /(?:when|if)?\s*([a-zA-Z]+)\s*(rises\s*above|above|drops\s*below|below|>|<)\s*\$?\s*(\d+(?:\.\d+)?)/i
-  const priceMatch = input.match(priceRe1)
-  if (priceMatch) {
-    const token = normalizeToken(priceMatch[1])
-    const op = priceMatch[2].toLowerCase()
-    const threshold = Number.parseFloat(priceMatch[3])
-    const direction: Direction = op.includes("below") || op === "<" ? "below" : "above"
-
-    return {
-      type: "price",
-      token,
-      direction,
-      threshold,
-      swap: { tokenIn, tokenOut, amountIn },
-      summary: `Swap ${amountIn} ${tokenIn} to ${tokenOut} when ${token} ${direction} $${threshold}`,
-    }
-  }
-
-  if (intervalHours !== null) {
-    return {
-      type: "time",
-      intervalHours,
-      swap: { tokenIn, tokenOut, amountIn },
-      summary: `Swap ${amountIn} ${tokenIn} to ${tokenOut} every ${intervalHours} hour(s)`,
-    }
-  }
-
-  return null
-}
+// Sequential loading messages with timing
+const LOADING_SEQUENCE = [
+  { message: "🚀 Task creation started...", delay: 0 },
+  { message: "🧠 Processing natural language with AI...", delay: 4000 },
+  { message: "🔍 Analyzing your automation request...", delay: 8000 },
+  { message: "⚙️ Setting up smart contract parameters...", delay: 12000 },
+  { message: "🔗 Deploying task on blockchain...", delay: 16000 },
+  { message: "✅ Finalizing transaction...", delay: 20000 },
+]
 
 export function ChatCreateTask() {
-  const router = useRouter()
+  const { address } = useWallet()
   const [input, setInput] = useState("")
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
     {
@@ -114,82 +39,139 @@ export function ChatCreateTask() {
     },
   ])
   const [submitting, setSubmitting] = useState(false)
+  const [currentLoadingStep, setCurrentLoadingStep] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const hasUserMessage = messages.some((m) => m.role === "user")
 
+  // Function to display sequential loading messages
+  const startLoadingSequence = () => {
+    setCurrentLoadingStep(0)
+    
+    LOADING_SEQUENCE.forEach((step, index) => {
+      setTimeout(() => {
+        setCurrentLoadingStep(index)
+        setMessages((prevMessages) => [
+          ...prevMessages.slice(0, -1), // Remove previous loading message
+          { role: "assistant", content: step.message },
+        ])
+      }, step.delay)
+    })
+  }
+
   async function handleSubmit(e?: React.FormEvent) {
-    if (e) e.preventDefault()
+    console.log("handleSubmit called with input:", input)
+    
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    
     const text = input.trim()
-    if (!text) return
+    if (!text) {
+      console.log("No text provided, returning early")
+      return
+    }
 
-    setMessages((m) => [...m, { role: "user", content: text }])
-    setInput("")
-
-    // Placeholder for future LangChain tool-calling integration
-    const plan = planFromText(text)
-
-    if (!plan) {
+    if (!address) {
+      console.log("No wallet address, showing error message")
       setMessages((m) => [
         ...m,
         {
           role: "assistant",
-          content:
-            "I couldn’t understand that yet. Try something like: “Every 6 hours swap 10 USDC to ETH” or “When BTC rises above $70000, swap 1000 USDC to BTC”.",
+          content: "Please connect your wallet before creating a task.",
         },
       ])
       return
     }
 
-    try {
-      setSubmitting(true)
+    console.log("Starting API call...")
+    setSubmitting(true)
+    setInput("") // Clear input immediately
+    appendToChatHistory(text)
 
-      const base: { type: TaskType } = { type: plan.type }
-      if (plan.type === "time") {
-        await createTask({
-          ...base,
-          condition: { intervalHours: plan.intervalHours },
-          swap: plan.swap,
-        })
-      } else {
-        await createTask({
-          ...base,
-          condition: {
-            token: plan.token,
-            threshold: plan.threshold,
-            direction: plan.direction,
-          },
-          swap: plan.swap,
-        })
+    // Add user message and start loading sequence
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      { role: "user", content: text },
+      { role: "assistant", content: "🚀 Task creation started..." },
+    ])
+
+    // Start the loading sequence
+    startLoadingSequence()
+
+    try {
+      const payload = { instruction: text, userAddress: address }
+      console.log("Sending payload:", payload)
+      
+      const res = await fetch(`${API_URL}/natural-language/create-task`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        const errorBody = await res.json()
+        console.error("API Error:", errorBody)
+        throw new Error(errorBody.error || "An unknown error occurred")
       }
 
-      toast.success("Task created", { description: plan.summary })
-      setMessages((m) => [
-        ...m,
+      const responseData = await res.json()
+      console.log("Success response:", responseData)
+      const { taskId, transactionHash, message } = responseData
+
+      // Success message with transaction hash
+      setMessages((prevMessages) => [
+        ...prevMessages.slice(0, -1), // Remove loading message
         {
           role: "assistant",
-          content: `Done! ${plan.summary}. Redirecting to your dashboard...`,
+          content: `🎉 Congratulations! Your task has been successfully created on-chain!\n\n📋 Task ID: ${taskId}\n🔗 Transaction Hash: ${transactionHash}\n\n✅ Your automation is now live and will execute according to your specified conditions.`,
         },
       ])
-      router.push("/dashboard")
+
+      toast.success("🎉 Task Created Successfully!", {
+        description: message,
+        action: {
+          label: "View Transaction",
+          onClick: () => window.open(`https://explorer.testnet.rootstock.io/tx/${transactionHash}`, "_blank"),
+        },
+      })
+
     } catch (err: any) {
+      console.error("Error creating task:", err)
+      
+      setMessages((prevMessages) => [
+        ...prevMessages.slice(0, -1), // Remove loading message
+        {
+          role: "assistant",
+          content: "❌ Something went wrong while creating your task. Please check your wallet connection and try again.",
+        },
+      ])
+      
       toast.error("Failed to create task", {
         description: err?.message ?? "Unknown error",
       })
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          content: "Something went wrong while creating your task. Please try again.",
-        },
-      ])
     } finally {
       setSubmitting(false)
+      setCurrentLoadingStep(0)
     }
   }
 
+  // Handle button click separately to ensure it works
+  const handleButtonClick = (e: React.MouseEvent) => {
+    console.log("Button clicked")
+    e.preventDefault()
+    handleSubmit()
+  }
+
+  // Handle form submission
+  const handleFormSubmit = (e: React.FormEvent) => {
+    console.log("Form submitted")
+    handleSubmit(e)
+  }
+
   function applySuggestion(s: string) {
+    if (submitting) return // Don't allow changes during submission
     setInput(s)
-    // optional: submit immediately; we keep it manual so users can adjust
     inputRef.current?.focus()
   }
 
@@ -202,39 +184,7 @@ export function ChatCreateTask() {
         </span>
       </div>
 
-      <form onSubmit={handleSubmit} className="relative" aria-label="Create task with chat">
-        <div className="flex items-center gap-2 rounded-full border border-border/60 bg-card/80 px-4 py-2 ring-1 ring-primary/20 focus-within:ring-primary/40">
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask anything about trading..."
-            className="w-full bg-transparent px-1 py-2 text-sm text-foreground placeholder:text-foreground/50 focus:outline-none"
-            aria-label="Chat input"
-          />
-          <Button type="submit" className="rounded-full" disabled={!input.trim() || submitting} aria-label="Send">
-            <ArrowUp className="h-4 w-4" />
-          </Button>
-        </div>
-      </form>
-
-      <p className="text-center text-xs text-foreground/60">
-        Examples: “Every 6 hours swap 10 USDC to ETH” · “When BTC rises above $70,000, swap 1,000 USDC to BTC”
-      </p>
-
-      <div className="flex items-center gap-2 overflow-x-auto">
-        {SUGGESTIONS.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => applySuggestion(s)}
-            className="shrink-0 rounded-full border border-border/60 bg-background/60 px-3 py-1.5 text-xs text-foreground/80 transition-colors hover:bg-accent"
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
+      {/* Chat Messages Above Input */}
       {hasUserMessage && (
         <div className="rounded-xl border border-border/60 bg-card/60 p-4">
           <div className="flex flex-col gap-4">
@@ -245,8 +195,32 @@ export function ChatCreateTask() {
                     <div className="mb-1 flex items-center gap-2 text-foreground/70">
                       <MessageCircle className="h-4 w-4 text-primary" />
                       <span className="text-xs">Assistant</span>
+                      {submitting && i === messages.length - 1 && (
+                        <div className="ml-2 h-3 w-3 animate-pulse rounded-full bg-primary" />
+                      )}
                     </div>
-                    <p className="text-foreground/90">{m.content}</p>
+                    <div className="text-foreground/90 whitespace-pre-line">
+                      {m.content}
+                      {/* Show transaction link if this is a success message with txHash */}
+                      {m.content.includes("Transaction Hash:") && (
+                        <div className="mt-3 flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs"
+                            onClick={() => {
+                              const transactionHash = m.content.match(/\*\*Transaction Hash:\*\* ([a-fA-F0-9x]+)/)?.[1]
+                              if (transactionHash) {
+                                window.open(`https://explorer.testnet.rootstock.io/tx/${transactionHash}`, "_blank")
+                              }
+                            }}
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            View on Explorer
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="ml-auto mr-0 max-w-[80%] rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm">
@@ -258,6 +232,57 @@ export function ChatCreateTask() {
           </div>
         </div>
       )}
+
+      <form onSubmit={handleFormSubmit} className="relative" aria-label="Create task with chat">
+        <div className="flex items-center gap-2 rounded-full border border-border/60 bg-card/80 px-4 py-2 ring-1 ring-primary/20 focus-within:ring-primary/40">
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={(e) => !submitting && setInput(e.target.value)} // Disable during submission
+            placeholder={submitting ? "Processing your request..." : "Ask anything about trading..."}
+            className="w-full bg-transparent px-1 py-2 text-sm text-foreground placeholder:text-foreground/50 focus:outline-none"
+            aria-label="Chat input"
+            disabled={submitting} // Disable input during submission
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !submitting) {
+                e.preventDefault()
+                handleSubmit()
+              }
+            }}
+          />
+          <Button 
+            type="button"
+            onClick={handleButtonClick}
+            className="rounded-full" 
+            disabled={!input.trim() || submitting} 
+            aria-label={submitting ? "Processing..." : "Send"}
+          >
+            {submitting ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <ArrowUp className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </form>
+
+      <p className="text-center text-xs text-foreground/60">
+        Examples: "Every 6 hours swap 10 USDC to ETH" · "When BTC rises above $70,000, swap 1,000 USDC to BTC"
+      </p>
+
+      <div className="flex items-center gap-2 overflow-x-auto">
+        {SUGGESTIONS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => applySuggestion(s)}
+            disabled={submitting} // Disable suggestions during submission
+            className="shrink-0 rounded-full border border-border/60 bg-background/60 px-3 py-1.5 text-xs text-foreground/80 transition-colors hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {s}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

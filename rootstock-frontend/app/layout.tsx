@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { Navbar } from "@/components/nav-bar"
 import { Suspense } from "react"
+import { WalletProvider } from "@/lib/wallet"
 
 export const metadata: Metadata = {
   title: "Rootstock-Agent",
@@ -21,6 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} dark antialiased`}>
       <body className="font-sans bg-background text-foreground">
+        <WalletProvider>
         <div className="relative min-h-dvh overflow-x-clip">
           <Suspense fallback={<div>Loading...</div>}>
             <Navbar />
@@ -28,6 +30,7 @@ export default function RootLayout({
             <Analytics />
           </Suspense>
         </div>
+      </WalletProvider>
       </body>
     </html>
   )
