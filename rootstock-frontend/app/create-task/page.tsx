@@ -7,18 +7,38 @@ import { ChatHistory } from "@/components/chat-history"
 import { PricesTicker } from "@/components/prices-ticker"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+type HistoryItem = {
+  id: string
+  userPrompt: string
+  assistantResponse: string
+  createdAt: number
+}
+
 export default function CreateTaskPage() {
-  const [chatInput, setChatInput] = useState("");
+  const [chatInput, setChatInput] = useState("")
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<HistoryItem | null>(null)
+
+  const handleHistorySelect = (item: HistoryItem) => {
+    setSelectedHistoryItem(item)
+    setChatInput("") // Clear current input
+  }
+
+  const clearSelectedHistory = () => {
+    setSelectedHistoryItem(null)
+  }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_280px] gap-6 px-4 py-10 min-h-[calc(100vh-4rem)]">
-      {/* Left Sidebar */}
+    <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr_300px] gap-6 px-4 py-6 min-h-[calc(100vh-4rem)]">
+      {/* Left Sidebar - Chat History */}
       <div className="hidden lg:block">
-        <ChatHistory onSelect={setChatInput} className="sticky top-24" />
+        <ChatHistory 
+          onSelect={handleHistorySelect} 
+          className="sticky top-6" 
+        />
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col">
+      <div className="flex flex-col min-h-0">
         <div className="text-center mb-8">
           <h2 className="text-xl font-semibold tracking-tight">Create Task</h2>
           <p className="text-sm text-foreground/70">
@@ -26,27 +46,32 @@ export default function CreateTaskPage() {
           </p>
         </div>
 
-        <Tabs defaultValue="chat" className="flex-1 flex flex-col">
+        <Tabs defaultValue="chat" className="flex-1 flex flex-col min-h-0">
           <TabsList className="mx-auto mb-4">
             <TabsTrigger value="chat">Chat</TabsTrigger>
             <TabsTrigger value="form">Form</TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 flex flex-col">
-            <TabsContent value="chat" className="flex-1 flex flex-col justify-end">
-              <ChatCreateTask input={chatInput} setInput={setChatInput} />
+          <div className="flex-1 flex flex-col min-h-0">
+            <TabsContent value="chat" className="flex-1 flex flex-col justify-end min-h-0">
+              <ChatCreateTask 
+                input={chatInput} 
+                setInput={setChatInput}
+                selectedHistoryItem={selectedHistoryItem}
+                onClearHistory={clearSelectedHistory}
+              />
             </TabsContent>
 
-            <TabsContent value="form" className="flex-1">
+            <TabsContent value="form" className="flex-1 overflow-y-auto">
               <TaskForm />
             </TabsContent>
           </div>
         </Tabs>
       </div>
 
-      {/* Right Sidebar */}
+      {/* Right Sidebar - Prices Ticker */}
       <div className="hidden lg:block">
-        <PricesTicker className="sticky top-24" />
+        <PricesTicker className="sticky top-6" />
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client"
 
 import useSWR from "swr"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 type TokenInfo = {
   id: string // coingecko id
@@ -9,6 +9,14 @@ type TokenInfo = {
   label: string
   chain: string
   fallbackUsd: number
+}
+
+type PriceEntry = {
+  id: string
+  token: TokenInfo
+  price: number
+  timestamp: number
+  key: string
 }
 
 const TOKENS: TokenInfo[] = [
@@ -38,6 +46,14 @@ export function PricesTicker({ className = "" }: { className?: string }) {
     },
   )
 
+  const [priceEntries, setPriceEntries] = useState<PriceEntry[]>([])
+  const [currentTokenIndex, setCurrentTokenIndex] = useState(0)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  
+  // Configuration constants
+  const MAX_ENTRIES = 10 // Limit to 10 entries max
+  const UPDATE_INTERVAL = 5000 // Update every 5 seconds (slower pace)
+
   const prices = useMemo(() => {
     const map = new Map<string, number>()
     TOKENS.forEach((t) => {
@@ -47,42 +63,133 @@ export function PricesTicker({ className = "" }: { className?: string }) {
     return map
   }, [data])
 
-  const [index, setIndex] = useState(0)
+  // Add new price entries with controlled timing and limits
   useEffect(() => {
-    const id = setInterval(() => {
-      setIndex((i) => (i + Math.ceil(Math.random() * 3)) % TOKENS.length)
-    }, 5000)
-    return () => clearInterval(id)
-  }, [])
+    const addPriceEntry = () => {
+      const token = TOKENS[currentTokenIndex]
+      const price = prices.get(token.id) ?? token.fallbackUsd
+      const timestamp = Date.now()
+      
+      const newEntry: PriceEntry = {
+        id: token.id,
+        token,
+        price,
+        timestamp,
+        key: `${token.id}-${timestamp}`, // Unique key for animation
+      }
 
-  const t = TOKENS[index]
-  const price = prices.get(t.id) ?? t.fallbackUsd
+      setPriceEntries(prev => {
+        // Add new entry at the beginning and limit to MAX_ENTRIES
+        const updated = [newEntry, ...prev].slice(0, MAX_ENTRIES)
+        return updated
+      })
+
+      // Move to next token (random jump of 1-3 positions)
+      setCurrentTokenIndex(prev => (prev + Math.ceil(Math.random() * 3)) % TOKENS.length)
+    }
+
+    // Add initial entry after a short delay
+    const initialTimeout = setTimeout(addPriceEntry, 1000)
+
+    // Then add entries at regular intervals
+    const interval = setInterval(addPriceEntry, UPDATE_INTERVAL)
+    
+    return () => {
+      clearTimeout(initialTimeout)
+      clearInterval(interval)
+    }
+  }, [currentTokenIndex, prices])
+
+  // Auto-scroll to top when new entries are added
+  useEffect(() => {
+    if (scrollContainerRef.current && priceEntries.length > 0) {
+      scrollContainerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
+  }, [priceEntries])
 
   return (
-    <aside className={`rounded-md border border-border bg-card p-4 ${className}`} aria-label="Live prices">
-      <div className="mb-3 flex items-center justify-between">
+    <aside className={`flex flex-col h-[calc(100vh-6rem)] rounded-md border border-border bg-card ${className}`} aria-label="Live prices">
+      <div className="flex items-center justify-between p-4 border-b border-border">
         <h3 className="text-sm font-medium text-foreground">Live Prices</h3>
-        <span className="text-xs text-muted-foreground">updates every 5s</span>
       </div>
-      <div className="relative h-24 overflow-hidden">
-        <div
-          key={`${t.id}-${price}`}
-          className="absolute inset-0 animate-in fade-in zoom-in rounded-lg border border-border bg-background p-4"
-          style={{ animationDuration: "300ms" } as any}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">{t.chain}</p>
-              <p className="text-base font-semibold text-foreground">
-                {t.label} <span className="text-muted-foreground text-sm">({t.symbol})</span>
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xl font-bold text-foreground">${price.toLocaleString()}</p>
-              <p className="text-xs text-muted-foreground">USD</p>
-            </div>
+      
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto p-4 space-y-3"
+      >
+        {priceEntries.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-sm text-muted-foreground">Loading prices...</p>
           </div>
-        </div>
+        ) : (
+          priceEntries.map((entry, index) => (
+            <div
+              key={entry.key}
+              className={`rounded-lg border border-border bg-background p-4 animate-in fade-in slide-in-from-top-2 ${
+                index === 0 ? 'ring-2 ring-primary/20' : ''
+              }`}
+              style={{ 
+                animationDuration: "500ms",
+                animationDelay: `${index * 50}ms`
+              } as any}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-muted-foreground truncate">{entry.token.chain}</p>
+                  <p className="text-sm font-semibold text-foreground truncate">
+                    {entry.token.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    ({entry.token.symbol})
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-foreground">
+                    ${entry.price.toLocaleString(undefined, {
+                      minimumFractionDigits: entry.price < 1 ? 4 : 0,
+                      maximumFractionDigits: entry.price < 1 ? 4 : 0,
+                    })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(entry.timestamp).toLocaleTimeString(undefined, {
+                      hour12: false,
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit'
+                    })}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Price change indicator */}
+              {index > 0 && priceEntries[index].token.id === priceEntries[index - 1]?.token.id && (
+                <div className="mt-2 pt-2 border-t border-border/50">
+                  {(() => {
+                    const prevPrice = priceEntries[index - 1].price
+                    const change = entry.price - prevPrice
+                    const changePercent = ((change / prevPrice) * 100)
+                    return (
+                      <div className={`text-xs flex items-center justify-between ${
+                        change > 0 ? 'text-green-600' : change < 0 ? 'text-red-600' : 'text-muted-foreground'
+                      }`}>
+                        <span>
+                          {change > 0 ? '↗' : change < 0 ? '↘' : '→'} 
+                          {change > 0 ? '+' : ''}${change.toFixed(2)}
+                        </span>
+                        <span>
+                          {change > 0 ? '+' : ''}{changePercent.toFixed(2)}%
+                        </span>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
     </aside>
   )

@@ -13,7 +13,6 @@ export function Navbar() {
     { href: "/", label: "Home" },
     { href: "/create-task", label: "Create Task" },
     { href: "/dashboard", label: "Dashboard" },
-    { href: "/swap", label: "Swap" },
   ]
 
   return (

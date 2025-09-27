@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { ArrowUp, MessageCircle, Sparkles, ExternalLink } from "lucide-react"
@@ -28,7 +28,24 @@ const LOADING_SEQUENCE = [
   { message: "✅ Finalizing transaction...", delay: 20000 },
 ]
 
-export function ChatCreateTask({ input, setInput }: { input: string; setInput: (value: string) => void }) {
+type HistoryItem = {
+  id: string
+  userPrompt: string
+  assistantResponse: string
+  createdAt: number
+}
+
+export function ChatCreateTask({ 
+  input, 
+  setInput,
+  selectedHistoryItem,
+  onClearHistory
+}: { 
+  input: string; 
+  setInput: (value: string) => void;
+  selectedHistoryItem?: HistoryItem | null;
+  onClearHistory?: () => void;
+}) {
   const { address } = useWallet()
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
     {
@@ -41,6 +58,34 @@ export function ChatCreateTask({ input, setInput }: { input: string; setInput: (
   const [currentLoadingStep, setCurrentLoadingStep] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const hasUserMessage = messages.some((m) => m.role === "user")
+
+  // Load history item when selected
+  useEffect(() => {
+    if (selectedHistoryItem) {
+      setMessages([
+        {
+          role: "assistant",
+          content:
+            "Tell me what you want to automate. I can schedule swaps by time or trigger them when a price crosses a threshold.",
+        },
+        { role: "user", content: selectedHistoryItem.userPrompt },
+        { role: "assistant", content: selectedHistoryItem.assistantResponse },
+      ])
+      setInput("") // Clear input when loading history
+    }
+  }, [selectedHistoryItem, setInput])
+
+  // Reset to initial state when starting new conversation
+  const resetToInitialState = () => {
+    setMessages([
+      {
+        role: "assistant",
+        content:
+          "Tell me what you want to automate. I can schedule swaps by time or trigger them when a price crosses a threshold.",
+      },
+    ])
+    onClearHistory?.()
+  }
 
   // Function to display sequential loading messages
   const startLoadingSequence = () => {
@@ -86,7 +131,6 @@ export function ChatCreateTask({ input, setInput }: { input: string; setInput: (
     console.log("Starting API call...")
     setSubmitting(true)
     setInput("") // Clear input immediately
-    appendToChatHistory(text)
 
     // Add user message and start loading sequence
     setMessages((prevMessages) => [
@@ -119,13 +163,18 @@ export function ChatCreateTask({ input, setInput }: { input: string; setInput: (
       const { taskId, transactionHash, message } = responseData
 
       // Success message with transaction hash
+      const successMessage = `🎉 Congratulations! Your task has been successfully created on-chain!\n\n📋 Task ID: ${taskId}\n🔗 Transaction Hash: ${transactionHash}\n\n✅ Your automation is now live and will execute according to your specified conditions.`
+      
       setMessages((prevMessages) => [
         ...prevMessages.slice(0, -1), // Remove loading message
         {
           role: "assistant",
-          content: `🎉 Congratulations! Your task has been successfully created on-chain!\n\n📋 Task ID: ${taskId}\n🔗 Transaction Hash: ${transactionHash}\n\n✅ Your automation is now live and will execute according to your specified conditions.`,
+          content: successMessage,
         },
       ])
+
+      // Store in chat history with both prompt and response
+      appendToChatHistory(text, successMessage)
 
       toast.success("🎉 Task Created Successfully!", {
         description: message,
@@ -138,13 +187,18 @@ export function ChatCreateTask({ input, setInput }: { input: string; setInput: (
     } catch (err: any) {
       console.error("Error creating task:", err)
       
+      const errorMessage = "❌ Something went wrong while creating your task. Please check your wallet connection and try again."
+      
       setMessages((prevMessages) => [
         ...prevMessages.slice(0, -1), // Remove loading message
         {
           role: "assistant",
-          content: "❌ Something went wrong while creating your task. Please check your wallet connection and try again.",
+          content: errorMessage,
         },
       ])
+
+      // Store error in history too
+      appendToChatHistory(text, errorMessage)
       
       toast.error("Failed to create task", {
         description: err?.message ?? "Unknown error",
@@ -176,6 +230,17 @@ export function ChatCreateTask({ input, setInput }: { input: string; setInput: (
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
+      {selectedHistoryItem && (
+        <div className="flex justify-center">
+          <button
+            onClick={resetToInitialState}
+            className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/70 px-3 py-1 text-xs text-foreground/80 hover:bg-accent"
+          >
+            Start New Conversation
+          </button>
+        </div>
+      )}
+      
       <div className="flex justify-center">
         <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/70 px-3 py-1 text-xs text-foreground/80">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
@@ -185,7 +250,7 @@ export function ChatCreateTask({ input, setInput }: { input: string; setInput: (
 
       {/* Chat Messages Above Input */}
       {hasUserMessage && (
-        <div className="rounded-xl border border-border/60 bg-card/60 p-4">
+        <div className="rounded-xl border border-border/60 bg-card/60 p-4 max-h-[60vh] overflow-y-auto">
           <div className="flex flex-col gap-4">
             {messages.map((m, i) => (
               <div key={i} className="flex">
@@ -208,7 +273,8 @@ export function ChatCreateTask({ input, setInput }: { input: string; setInput: (
                             variant="outline"
                             className="h-8 text-xs"
                             onClick={() => {
-                              const transactionHash = m.content.match(/\*\*Transaction Hash:\*\* ([a-fA-F0-9x]+)/)?.[1]
+                              const transactionHashMatch = m.content.match(/🔗 Transaction Hash: ([a-fA-F0-9x]+)/)
+                              const transactionHash = transactionHashMatch?.[1]
                               if (transactionHash) {
                                 window.open(`https://explorer.testnet.rootstock.io/tx/${transactionHash}`, "_blank")
                               }
