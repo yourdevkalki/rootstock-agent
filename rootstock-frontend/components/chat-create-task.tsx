@@ -28,9 +28,8 @@ const LOADING_SEQUENCE = [
   { message: "✅ Finalizing transaction...", delay: 20000 },
 ]
 
-export function ChatCreateTask() {
+export function ChatCreateTask({ input, setInput }: { input: string; setInput: (value: string) => void }) {
   const { address } = useWallet()
-  const [input, setInput] = useState("")
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
     {
       role: "assistant",
