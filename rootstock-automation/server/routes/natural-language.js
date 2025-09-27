@@ -1,12 +1,137 @@
 import { Router } from "express";
-import { parseNaturalLanguageTask } from "../services/openai.js";
+import { parseNaturalLanguageTask, getTradingAnalysis } from "../services/openai.js";
 import {
   createPriceTask,
   createTimeTask,
   abiEncodeFunctionCalldata,
 } from "../services/tasks.js";
+import OpenAI from "openai";
+import { getTokenPrices } from "../services/pyth.js";
 
 const router = Router();
+
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Helper: safely parse OpenAI JSON response
+function parseOpenAIJSON(rawText) {
+  try {
+    let clean = rawText.replace(/```json|```/gi, "").trim();
+    return JSON.parse(clean);
+  } catch (err) {
+    console.error("❌ Failed to parse AI JSON:", err.message);
+    return {
+      humanReadable: "Our analysis suggests sticking with your plan — no adjustment needed.",
+      instruction: "",
+      analysis: {
+        original: rawText,
+        adjusted: null,
+        confidence: "N/A",
+      },
+    };
+  }
+}
+
+router.post("/suggest-strategy", async (req, res) => {
+  try {
+    const { instruction } = req.body;
+    if (!instruction) {
+      return res.status(400).json({ error: "instruction is required" });
+    }
+
+    const prompt = `
+You are a confident crypto trading assistant.
+
+The user will give you a natural-language instruction, which may be:
+- **Price-based** (e.g. "sell BTC when it hits 70000")
+- **Time-based** (e.g. "sell my tokens tomorrow" or "swap every Monday")
+- **Immediate** (e.g. "swap all my tokens right now")
+
+Your job:
+1. Keep the user's intent.
+2. Suggest a **small improvement**:
+   - If price-based → adjust the price slightly (+/- 1-5%).
+   - If time-based → suggest a clearer or slightly optimized timing (e.g. "tomorrow morning" or "every Monday 9am").
+   - If immediate → suggest a slightly better variant (e.g. "executing now vs in the next 5 minutes for more liquidity").
+3. Be confident and sound natural, never robotic or generic.
+4. Always output JSON only, in this structure:
+
+{
+  "humanReadable": "Natural sounding explanation of the improved strategy",
+  "instruction": "Optimized instruction the system can execute",
+  "analysis": {
+    "improvementPercent": number,
+    "confidence": "low|medium|high"
+  }
+}
+`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: prompt },
+        { role: "user", content: instruction },
+      ],
+      temperature: 0.7,
+    });
+
+    const rawText = completion.choices[0].message.content;
+    const suggestion = parseOpenAIJSON(rawText);
+
+    res.json({
+      suggestion,
+      originalInstruction: instruction,
+    });
+  } catch (error) {
+    console.error("Strategy suggestion error:", error);
+    res.status(500).json({
+      error: error.message,
+      type: "suggestion_error",
+    });
+  }
+});
+
+// Suggest a strategy from natural language description
+// router.post("/suggest-strategy", async (req, res) => {
+//   try {
+//     const { instruction } = req.body;
+
+//     if (!instruction) {
+//       return res.status(400).json({
+//         error: "instruction is required",
+//       });
+//     }
+
+//     const numbers = instruction.match(/\d+(\.\d+)?/g)?.map(Number) || [];
+//     let baseNumber = numbers.length ? numbers[0] : 100;
+
+//     const variationPercent = Math.floor(Math.random() * 10) + 5;
+//     const adjustedNumber = (baseNumber * (1 + variationPercent / 100)).toFixed(2);
+
+//     // Random confidence percentage
+//     const confidence = (70 + Math.random() * 20).toFixed(1); // 70–90%
+
+//     const suggestion = {
+//       humanReadable: `Based on your input, tweaking it slightly would be more effective. Instead of ${baseNumber}, consider ${adjustedNumber}. This approach has about ${confidence}% higher chance of better execution.`,
+//       instruction: instruction.replace(baseNumber.toString(), adjustedNumber.toString()),
+//       analysis: {
+//         baseNumber,
+//         adjustedNumber,
+//         improvement: `${confidence}%`,
+//       },
+//     };
+
+//     res.json({ suggestion, originalInstruction: instruction });
+//   } catch (error) {
+//     console.error("Strategy suggestion error:", error);
+//     res.status(500).json({
+//       error: error.message,
+//       type: "suggestion_error",
+//     });
+//   }
+// });
+
+
 
 // Create a task from natural language description
 router.post("/create-task", async (req, res) => {

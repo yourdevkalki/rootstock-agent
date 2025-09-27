@@ -47,7 +47,7 @@ export function ChatCreateTask({
   onClearHistory?: () => void;
 }) {
   const { address } = useWallet()
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string; suggestion?: any; }[]>([
     {
       role: "assistant",
       content:
@@ -55,6 +55,8 @@ export function ChatCreateTask({
     },
   ])
   const [submitting, setSubmitting] = useState(false)
+  const [suggestion, setSuggestion] = useState<any>(null)
+  const [userChoice, setUserChoice] = useState<string>('')
   const [currentLoadingStep, setCurrentLoadingStep] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const hasUserMessage = messages.some((m) => m.role === "user")
@@ -102,6 +104,112 @@ export function ChatCreateTask({
     })
   }
 
+  async function handleSuggestionChoice(choice: 'accept' | 'reject', suggestionData: any) {
+    const instructionToCreate = choice === 'accept' ? suggestionData.suggestion.instruction : suggestionData.originalInstruction;
+    const userResponseText = choice === 'accept' ? "Sounds good, use the suggestion." : "No thanks, I'll use my own strategy.";
+
+    // Remove the suggestion from the message to hide the buttons
+    setMessages((prevMessages) =>
+      prevMessages.map((msg) => {
+        if (msg.suggestion) {
+          const { suggestion, ...rest } = msg;
+          return rest;
+        }
+        return msg;
+      })
+    );
+
+    // Add user's choice to the chat history before creating the task
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      { role: "user", content: userResponseText },
+    ]);
+
+    // A short delay to let the user see their choice before the loading sequence starts
+    setTimeout(() => {
+      createTask(instructionToCreate);
+    }, 500);
+  }
+
+  async function createTask(instruction: string) {
+    console.log("createTask called with instruction:", instruction)
+    setSubmitting(true)
+
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      { role: "assistant", content: "🚀 Task creation started..." },
+    ])
+
+    startLoadingSequence();
+
+
+    try {
+      const payload = { instruction, userAddress: address }
+      console.log("Sending payload:", payload)
+      
+      const res = await fetch(`${API_URL}/natural-language/create-task`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        const errorBody = await res.json()
+        console.error("API Error:", errorBody)
+        throw new Error(errorBody.error || "An unknown error occurred")
+      }
+
+      const responseData = await res.json()
+      console.log("Success response:", responseData)
+      const { taskId, transactionHash, message } = responseData
+
+      // Success message with transaction hash
+      const successMessage = `🎉 Congratulations! Your task has been successfully created on-chain!\n\n Transaction Hash: ${transactionHash}\n\n✅ Your automation is now live and will execute according to your specified conditions.`
+      
+      setMessages((prevMessages) => [
+        ...prevMessages.slice(0, -1), // Remove loading message
+        {
+          role: "assistant",
+          content: successMessage,
+        },
+      ])
+
+      // Store in chat history with both prompt and response
+      appendToChatHistory(instruction, successMessage)
+
+      toast.success("🎉 Task Created Successfully!", {
+        description: message,
+        action: {
+          label: "View Transaction",
+          onClick: () => window.open(`https://explorer.testnet.rootstock.io/tx/${transactionHash}`, "_blank"),
+        },
+      })
+
+    } catch (err: any) {
+      console.error("Error creating task:", err)
+      
+      const errorMessage = "❌ Something went wrong while creating your task. Please check your wallet connection and try again."
+      
+      setMessages((prevMessages) => [
+        ...prevMessages.slice(0, -1), // Remove loading message
+        {
+          role: "assistant",
+          content: errorMessage,
+        },
+      ])
+
+      // Store error in history too
+      appendToChatHistory(instruction, errorMessage)
+      
+      toast.error("Failed to create task", {
+        description: err?.message ?? "Unknown error",
+      })
+    } finally {
+      setSubmitting(false)
+      setCurrentLoadingStep(0)
+    }
+  }
+
   async function handleSubmit(e?: React.FormEvent) {
     console.log("handleSubmit called with input:", input)
     
@@ -132,80 +240,51 @@ export function ChatCreateTask({
     setSubmitting(true)
     setInput("") // Clear input immediately
 
-    // Add user message and start loading sequence
     setMessages((prevMessages) => [
       ...prevMessages,
       { role: "user", content: text },
-      { role: "assistant", content: "🚀 Task creation started..." },
-    ])
-
-    // Start the loading sequence
-    startLoadingSequence()
+    ]);
 
     try {
-      const payload = { instruction: text, userAddress: address }
-      console.log("Sending payload:", payload)
-      
-      const res = await fetch(`${API_URL}/natural-language/create-task`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
+      const suggestionRes = await fetch(`${API_URL}/natural-language/suggest-strategy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instruction: text }),
+      });
 
-      if (!res.ok) {
-        const errorBody = await res.json()
-        console.error("API Error:", errorBody)
-        throw new Error(errorBody.error || "An unknown error occurred")
+      if (!suggestionRes.ok) {
+        console.error('Suggestion endpoint failed. Creating task directly.');
+        await createTask(text);
+        return;
       }
 
-      const responseData = await res.json()
-      console.log("Success response:", responseData)
-      const { taskId, transactionHash, message } = responseData
+      const suggestionData = await suggestionRes.json();
+      console.log("Suggestion data:", suggestionData)
 
-      // Success message with transaction hash
-      const successMessage = `🎉 Congratulations! Your task has been successfully created on-chain!\n\n📋 Task ID: ${taskId}\n🔗 Transaction Hash: ${transactionHash}\n\n✅ Your automation is now live and will execute according to your specified conditions.`
-      
-      setMessages((prevMessages) => [
-        ...prevMessages.slice(0, -1), // Remove loading message
-        {
-          role: "assistant",
-          content: successMessage,
-        },
-      ])
-
-      // Store in chat history with both prompt and response
-      appendToChatHistory(text, successMessage)
-
-      toast.success("🎉 Task Created Successfully!", {
-        description: message,
-        action: {
-          label: "View Transaction",
-          onClick: () => window.open(`https://explorer.testnet.rootstock.io/tx/${transactionHash}`, "_blank"),
-        },
-      })
-
+      if (suggestionData.suggestion) {
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          {
+            role: 'assistant',
+            content: suggestionData.suggestion.humanReadable,
+            suggestion: suggestionData,
+          },
+        ]);
+        setSubmitting(false);
+      } else {
+        await createTask(text);
+      }
     } catch (err: any) {
-      console.error("Error creating task:", err)
-      
-      const errorMessage = "❌ Something went wrong while creating your task. Please check your wallet connection and try again."
-      
+      console.error("Error in suggestion/creation flow:", err);
+      const errorMessage = "❌ Something went wrong. Please try again.";
       setMessages((prevMessages) => [
-        ...prevMessages.slice(0, -1), // Remove loading message
+        ...prevMessages,
         {
-          role: "assistant",
+          role: 'assistant',
           content: errorMessage,
         },
-      ])
-
-      // Store error in history too
-      appendToChatHistory(text, errorMessage)
-      
-      toast.error("Failed to create task", {
-        description: err?.message ?? "Unknown error",
-      })
-    } finally {
-      setSubmitting(false)
-      setCurrentLoadingStep(0)
+      ]);
+      setSubmitting(false);
     }
   }
 
@@ -248,7 +327,7 @@ export function ChatCreateTask({
         </span>
       </div>
 
-      {/* Chat Messages Above Input */}
+
       {hasUserMessage && (
         <div className="rounded-xl border border-border/60 bg-card/60 p-4 max-h-[60vh] overflow-y-auto">
           <div className="flex flex-col gap-4">
@@ -265,6 +344,15 @@ export function ChatCreateTask({
                     </div>
                     <div className="text-foreground/90 whitespace-pre-line">
                       {m.content}
+
+                      {/* Render suggestion buttons if they exist on the message */}
+                      {m.suggestion && (
+                        <div className="mt-4 flex justify-center gap-4">
+                          <Button onClick={() => handleSuggestionChoice('accept', m.suggestion)}>Accept Suggestion</Button>
+                          <Button variant="outline" onClick={() => handleSuggestionChoice('reject', m.suggestion)}>Use My Own</Button>
+                        </div>
+                      )}
+
                       {/* Show transaction link if this is a success message with txHash */}
                       {m.content.includes("Transaction Hash:") && (
                         <div className="mt-3 flex items-center gap-2">

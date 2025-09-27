@@ -113,6 +113,8 @@ Format your response as JSON with the following structure:
   "stopLoss": 108000,
   "takeProfit": 118000
 }
+
+CRITICAL: If your primary recommendation is 'HOLD', you MUST still provide a hypothetical 'BUY' or 'SELL' scenario in the response based on the most likely price movement. The user wants an actionable suggestion, not just to hold.
 `;
 
   try {
@@ -576,7 +578,8 @@ Format response as valid JSON without any comments:
   },
   "description": "Human readable description of what this task will do",
   "confidence": 85,
-  "warnings": ["Any potential issues or clarifications needed"]
+  "warnings": ["Any potential issues or clarifications needed"],
+  "symbol": "The token symbol (e.g., BTC, ETH) identified from the instruction. If not specified, default to BTC."
 }
 
 Examples:

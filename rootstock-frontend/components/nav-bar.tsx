@@ -25,7 +25,7 @@ export function Navbar() {
             className="rounded-sm"
           /> */}
           <span className="text-2xl font-bold text-[#ff9101] ">
-            Task𝕏
+            Automation𝕏
 
           </span>
         </Link>

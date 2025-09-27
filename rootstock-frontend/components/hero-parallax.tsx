@@ -23,7 +23,7 @@ export function HeroParallax() {
       {/* TaskX Tag */}
       <div className="mb-4">
         <span className="inline-block bg-gradient-to-r from-green-400 to-green-500 text-black px-3 py-1 rounded-md text-sm font-bold">
-          TaskX
+          AutomationX
         </span>
       </div>
 

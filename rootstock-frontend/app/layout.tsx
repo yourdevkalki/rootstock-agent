@@ -13,7 +13,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TaskX",
+  title: "AutomationX",
   description: "Automate DeFi tasks on Bitcoin’s Rootstock Network",
   generator: "v0.app",
 };
