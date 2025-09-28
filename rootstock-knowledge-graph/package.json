@@ -1,0 +1,41 @@
+{
+  "name": "grc20-task-indexer",
+  "version": "1.0.0",
+  "description": "GRC-20 indexer for TaskRegistry contract events on Rootstock",
+  "main": "dist/indexer.js",
+  "scripts": {
+    "dev": "tsx indexer.ts",
+    "build": "tsc",
+    "start": "node dist/indexer.js",
+    "type-check": "tsc --noEmit",
+    "backfill": "tsx indexer.ts --backfill",
+    "backfill:last-1000": "tsx indexer.ts --backfill",
+    "backfill:custom": "tsx indexer.ts --backfill --from-block=BLOCK_START --to-block=BLOCK_END",
+    "test-queries": "node test-queries.js",
+    "view-data": "node view-ipfs-data.js",
+    "test-ipfs": "node view-ipfs-data.js --test"
+  },
+  "keywords": [
+    "grc-20",
+    "rootstock",
+    "indexer",
+    "hypergraph",
+    "defi"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@graphprotocol/grc-20": "^0.25.2",
+    "viem": "^2.0.0",
+    "ethers": "^6.8.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
