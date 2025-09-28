@@ -548,8 +548,8 @@ Available protocols and contracts:
 - Dummy Swap Contract: "0x79D45320480ED0a4C7e2885b14aBBfdE394Fb353"
 - Task Registry: Available for automation
 - Supported tokens: 
-  - XBTC: "0x18A1d7F323a90DDE8e5Efc42971cF06Ad5B759b8" (${priceData.xBTC.formatted})
-  - XUSDC: "0xB39E2eeB5063881D452616dff1BcE19d79C3375D" (${priceData.xUSDC.formatted})
+  - XBTC: "0x07Ba1E656E45cF903b76383Fd7e3533fe06907E3" (${priceData.xBTC.formatted})
+  - XUSDC: "0x7Cfc71BbB6A3CC3d79703C8ceD89e7837FdeFa8b" (${priceData.xUSDC.formatted})
 
 Available Pyth price feeds:
 - BTC/USD: "0xe62df6c8b4c85fe1b67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43"
@@ -562,18 +562,20 @@ Parse this instruction and generate the required task parameters. Consider:
 2. What are the function parameters?
 3. Is this a time-based or price-based trigger?
 4. What are the trigger conditions?
-
 Format response as valid JSON without any comments:
 {
   "taskType": "price|time",
   "targetContract": "0x...",
   "functionSignature": "functionName(type1,type2,...)",
   "args": ["arg1", "arg2"],
+  "sourceToken": "The symbol of the token being swapped FROM (e.g., xBTC, xUSDC). Null if not a swap.",
+  "destinationToken": "The symbol of the token being swapped TO (e.g., xBTC, xUSDC). Null if not a swap.",
+  "amount": "The quantity of the token to be swapped, as a number. Default to 0 if not specified.",
   "resolverData": {
     "priceId": "0x...",
     "comparator": "gte|lte",
     "targetPrice": "price_in_8_decimals",
-    "targetExpo": -8,
+    "targetExpo": -8, // CRITICAL: For price tasks, this MUST be -8
     "intervalSeconds": 3600
   },
   "description": "Human readable description of what this task will do",
@@ -586,11 +588,13 @@ Examples:
 - "Swap 1 BTC to USDC when BTC price reaches $120,000" → price-based task with Dummy Swap
 - "Execute a swap every hour" → time-based task with simple function
 - "Sell tokens if BTC drops below $100,000" → price-based task
+- "Swap my 100 xUSDC to xBTC" → price-based task, sourceToken: xUSDC, destinationToken: xBTC
 
 IMPORTANT: 
 - Use ONLY the provided contract addresses above
 - For simple swaps, use function signature "executeSwap()" with empty args array
 - For complex functions, use minimal valid Ethereum addresses (40 hex chars)
+- For ALL price-based tasks, targetExpo MUST be -8.
 - Avoid placeholder text in addresses - use actual hex addresses
 `;
 

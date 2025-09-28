@@ -8,9 +8,17 @@ import { toast } from "sonner"
 import { ArrowUp, MessageCircle, Sparkles, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useWallet } from "@/lib/wallet"
+import { ethers } from "ethers"
 import { appendToChatHistory } from "./chat-history"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
+
+// Define a global interface for the window.ethereum object
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
 
 const SUGGESTIONS = [
   "Every day at 9am swap 50 USDC to ETH",
@@ -131,7 +139,7 @@ export function ChatCreateTask({
     }, 500);
   }
 
-  async function createTask(instruction: string) {
+  async function createTask(instruction: string, approvalTxHash?: string) {
     console.log("createTask called with instruction:", instruction)
     setSubmitting(true)
 
@@ -144,7 +152,7 @@ export function ChatCreateTask({
 
 
     try {
-      const payload = { instruction, userAddress: address }
+      const payload = { instruction, userAddress: address, approvalTxHash };
       console.log("Sending payload:", payload)
       
       const res = await fetch(`${API_URL}/natural-language/create-task`, {
@@ -159,9 +167,62 @@ export function ChatCreateTask({
         throw new Error(errorBody.error || "An unknown error occurred")
       }
 
-      const responseData = await res.json()
-      console.log("Success response:", responseData)
-      const { taskId, transactionHash, message } = responseData
+      const responseData = await res.json();
+      console.log("Success response:", responseData);
+
+      // --- Handle Approval Flow ---
+      if (responseData.needsApproval) {
+        setMessages((prevMessages) => [
+          ...prevMessages.slice(0, -1), // Remove loading message
+          {
+            role: "assistant",
+            content: "Your approval is required to perform this swap. Please confirm the transaction in your wallet.",
+          },
+        ]);
+
+        try {
+          if (!window.ethereum) {
+            throw new Error("MetaMask is not installed. Please install it to continue.");
+          }
+          const { tokenToApprove, amount, spender } = responseData;
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const signer = await provider.getSigner();
+          const tokenContract = new ethers.Contract(tokenToApprove, [
+            'function approve(address spender, uint256 amount) public returns (bool)'
+          ], signer);
+
+          // Convert amount to the correct unit (assuming 18 decimals)
+          const amountInWei = ethers.parseUnits(amount.toString(), 18);
+
+          const approveTx = await tokenContract.approve(spender, amountInWei);
+
+          setMessages((prevMessages) => [
+            ...prevMessages,
+            {
+              role: "assistant",
+              content: `⏳ Waiting for approval transaction to be confirmed...\nTransaction Hash: ${approveTx.hash}`,
+            },
+          ]);
+
+          await approveTx.wait(); // Wait for the transaction to be mined
+
+          // Now that approval is done, call createTask again with the approval hash
+          await createTask(instruction, approveTx.hash);
+
+        } catch (approvalError: any) {
+          console.error("Approval Error:", approvalError);
+          const errorMessage = `Approval failed: ${approvalError.message}`;
+          setMessages((prevMessages) => [
+            ...prevMessages.slice(0, -1),
+            { role: "assistant", content: errorMessage },
+          ]);
+          setSubmitting(false);
+        }
+        return; // Stop further execution in this run
+      }
+      // --- End Handle Approval Flow ---
+
+      const { taskId, transactionHash, message } = responseData;
 
       // Success message with transaction hash
       const successMessage = `🎉 Congratulations! Your task has been successfully created on-chain!\n\n Transaction Hash: ${transactionHash}\n\n✅ Your automation is now live and will execute according to your specified conditions.`
@@ -177,7 +238,7 @@ export function ChatCreateTask({
       // Store in chat history with both prompt and response
       appendToChatHistory(instruction, successMessage)
 
-      toast.success("🎉 Task Created Successfully!", {
+      toast.success("🎉 Automation Created Successfully!", {
         description: message,
         action: {
           label: "View Transaction",
@@ -361,8 +422,9 @@ export function ChatCreateTask({
                             variant="outline"
                             className="h-8 text-xs"
                             onClick={() => {
-                              const transactionHashMatch = m.content.match(/🔗 Transaction Hash: ([a-fA-F0-9x]+)/)
+                              const transactionHashMatch = m.content.match(/Transaction Hash: ([a-fA-F0-9x]+)/)
                               const transactionHash = transactionHashMatch?.[1]
+                              console.log(transactionHash)
                               if (transactionHash) {
                                 window.open(`https://explorer.testnet.rootstock.io/tx/${transactionHash}`, "_blank")
                               }

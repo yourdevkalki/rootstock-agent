@@ -65,7 +65,7 @@ async function main() {
     } catch (err) {
       console.error("Error checking tasks:", err.message);
     }
-  }, 60 * 1000);
+  }, 600 * 1000);
 }
 
 main();

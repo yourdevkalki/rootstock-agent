@@ -40,18 +40,13 @@ export default function CreateTaskPage() {
       {/* Main Content */}
       <div className="flex flex-col min-h-0">
         <div className="text-center mb-8">
-          <h2 className="text-xl font-semibold tracking-tight">Create Task</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Create Automation</h2>
           <p className="text-sm text-foreground/70">
             Use natural language or the structured form. Both create the same tasks.
           </p>
         </div>
 
         <Tabs defaultValue="chat" className="flex-1 flex flex-col min-h-0">
-          <TabsList className="mx-auto mb-4">
-            <TabsTrigger value="chat">Chat</TabsTrigger>
-            <TabsTrigger value="form">Form</TabsTrigger>
-          </TabsList>
-
           <div className="flex-1 flex flex-col min-h-0">
             <TabsContent value="chat" className="flex-1 flex flex-col justify-end min-h-0">
               <ChatCreateTask 

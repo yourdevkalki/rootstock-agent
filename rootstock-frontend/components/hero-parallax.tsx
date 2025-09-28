@@ -46,7 +46,7 @@ export function HeroParallax() {
         <span className="text-white mx-1">Network</span>
       </h1>
       <p className="text-pretty max-w-4xl text-center text-base leading-relaxed text-foreground/80 md:text-xl">
-       From swaps to lending, compounding, or custom strategies. <br/> Just tell TaskX what you want, and let AI bots execute.
+       From swaps to lending, compounding, or custom strategies. <br/> Just tell AutomationX what you want, and let AI bots execute.
       </p>
       <div className="flex items-center gap-3 mt-12">
         <Link href="/create-task">

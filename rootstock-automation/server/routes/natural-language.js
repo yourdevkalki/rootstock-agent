@@ -136,7 +136,7 @@ Your job:
 // Create a task from natural language description
 router.post("/create-task", async (req, res) => {
   try {
-    const { instruction, userAddress } = req.body;
+    const { instruction, userAddress, approvalTxHash } = req.body;
 
     // Validate input
     if (!instruction) {
@@ -159,6 +159,25 @@ router.post("/create-task", async (req, res) => {
     const parsedTask = await parseNaturalLanguageTask(instruction);
 
     console.log("Parsed task parameters:", JSON.stringify(parsedTask, null, 2));
+
+    // --- Approval Workflow ---
+    const supportedSwapTokens = ['xBTC', 'xUSDC'];
+
+    if (parsedTask.sourceToken && supportedSwapTokens.includes(parsedTask.sourceToken) && !approvalTxHash) {
+      const tokenContracts = {
+        xBTC: '0x07Ba1E656E45cF903b76383Fd7e3533fe06907E3',
+        xUSDC: '0x7Cfc71BbB6A3CC3d79703C8ceD89e7837FdeFa8b',
+      };
+
+      return res.json({
+        needsApproval: true,
+        tokenToApprove: tokenContracts[parsedTask.sourceToken],
+        amount: parsedTask.amount,
+        spender: parsedTask.targetContract,
+        originalInstruction: instruction,
+      });
+    }
+    // --- End Approval Workflow ---
 
     // Validate the parsed task
     if (
